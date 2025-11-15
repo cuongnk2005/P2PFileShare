@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.example.p2pfileshare.MainController">
+
+    <!-- MENU TRÊN CÙNG -->
+    <top>
+        <MenuBar>
+            <menus>
+                <Menu text="File">
+                    <items>
+                        <MenuItem text="Chọn thư mục chia sẻ..." onAction="#onChooseShareFolder"/>
+                        <SeparatorMenuItem/>
+                        <MenuItem text="Thoát" onAction="#onExit"/>
+                    </items>
+                </Menu>
+
+                <Menu text="Peer">
+                    <items>
+                        <MenuItem text="Quét peer trong LAN" onAction="#onScanPeers"/>
+                        <MenuItem text="Kết nối tới peer..." onAction="#onConnectPeer"/>
+                        <MenuItem text="Ngắt kết nối" onAction="#onDisconnectPeer"/>
+                    </items>
+                </Menu>
+
+                <Menu text="Trợ giúp">
+                    <items>
+                        <MenuItem text="Giới thiệu" onAction="#onAbout"/>
+                    </items>
+                </Menu>
+            </menus>
+        </MenuBar>
+    </top>
+
+    <!-- NỘI DUNG CHÍNH: TABPANE -->
+    <center>
+        <TabPane fx:id="mainTabPane">
+
+            <!-- TAB 1: PEER -->
+            <tabs>
+                <Tab text="Peer" closable="false">
+                    <BorderPane>
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+
+                        <top>
+                            <HBox spacing="10">
+                                <padding>
+                                    <Insets top="0" right="0" bottom="10" left="0"/>
+                                </padding>
+                                <children>
+                                    <Button text="Quét LAN" onAction="#onScanPeers"/>
+                                    <Button text="Kết nối..." onAction="#onConnectPeer"/>
+                                    <Button text="Ngắt kết nối" onAction="#onDisconnectPeer"/>
+                                    <Label text="Trạng thái:"/>
+                                    <Label fx:id="peerStatusLabel" text="Chưa kết nối"/>
+                                </children>
+                            </HBox>
+                        </top>
+
+                        <center>
+                            <TableView fx:id="peerTable">
+                                <columns>
+                                    <TableColumn fx:id="colPeerName" text="Tên peer" prefWidth="150"/>
+                                    <TableColumn fx:id="colPeerIp" text="IP" prefWidth="120"/>
+                                    <TableColumn fx:id="colPeerPort" text="Port" prefWidth="80"/>
+                                    <TableColumn fx:id="colPeerStatus" text="Trạng thái" prefWidth="100"/>
+                                </columns>
+                            </TableView>
+                        </center>
+                    </BorderPane>
+                </Tab>
+
+                <!-- TAB 2: TÀI LIỆU CHIA SẺ -->
+                <Tab text="Tài liệu chia sẻ" closable="false">
+                    <BorderPane>
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+
+                        <top>
+                            <VBox spacing="8">
+                                <children>
+                                    <HBox spacing="10">
+                                        <children>
+                                            <Label text="Thư mục chia sẻ:"/>
+                                            <TextField fx:id="shareFolderField" prefWidth="300" editable="false"/>
+                                            <Button text="Chọn..." onAction="#onChooseShareFolder"/>
+                                            <Button text="Quét lại" onAction="#onRefreshSharedFiles"/>
+                                        </children>
+                                    </HBox>
+                                    <HBox spacing="10">
+                                        <children>
+                                            <Button text="Thêm tài liệu..." onAction="#onAddSharedFile"/>
+                                            <Button text="Xóa tài liệu" onAction="#onRemoveSharedFile"/>
+                                        </children>
+                                    </HBox>
+                                </children>
+                            </VBox>
+                        </top>
+
+                        <center>
+                            <TableView fx:id="sharedFileTable">
+                                <columns>
+                                    <TableColumn fx:id="colSharedName" text="Tên file" prefWidth="200"/>
+                                    <TableColumn fx:id="colSharedType" text="Loại" prefWidth="80"/>
+                                    <TableColumn fx:id="colSharedSize" text="Kích thước" prefWidth="100"/>
+                                    <TableColumn fx:id="colSharedSubject" text="Môn học" prefWidth="120"/>
+                                    <TableColumn fx:id="colSharedTags" text="Tag" prefWidth="150"/>
+                                    <TableColumn fx:id="colSharedVisibility" text="Chia sẻ" prefWidth="80"/>
+                                </columns>
+                            </TableView>
+                        </center>
+                    </BorderPane>
+                </Tab>
+
+                <!-- TAB 3: TÌM KIẾM -->
+                <Tab text="Tìm kiếm" closable="false">
+                    <BorderPane>
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+
+                        <top>
+                            <VBox spacing="8">
+                                <children>
+                                    <HBox spacing="10">
+                                        <children>
+                                            <Label text="Từ khóa:"/>
+                                            <TextField fx:id="searchField" prefWidth="300"/>
+                                            <Button text="Tìm kiếm" onAction="#onSearch"/>
+                                        </children>
+                                    </HBox>
+                                    <HBox spacing="10">
+                                        <children>
+                                            <Label text="Lọc theo môn:"/>
+                                            <TextField fx:id="filterSubjectField" prefWidth="150"/>
+                                            <Label text="Peer:"/>
+                                            <TextField fx:id="filterPeerField" prefWidth="150"/>
+                                        </children>
+                                    </HBox>
+                                </children>
+                            </VBox>
+                        </top>
+
+                        <center>
+                            <TableView fx:id="searchResultTable">
+                                <columns>
+                                    <TableColumn fx:id="colResultName" text="Tên file" prefWidth="200"/>
+                                    <TableColumn fx:id="colResultSubject" text="Môn học" prefWidth="120"/>
+                                    <TableColumn fx:id="colResultOwner" text="Người chia sẻ" prefWidth="150"/>
+                                    <TableColumn fx:id="colResultPeer" text="Peer" prefWidth="120"/>
+                                    <TableColumn fx:id="colResultSize" text="Kích thước" prefWidth="100"/>
+                                </columns>
+                            </TableView>
+                        </center>
+
+                        <bottom>
+                            <VBox spacing="8">
+                                <padding>
+                                    <Insets top="10" right="0" bottom="0" left="0"/>
+                                </padding>
+                                <children>
+                                    <HBox spacing="10">
+                                        <children>
+                                            <Button text="Xem chi tiết" onAction="#onViewFileDetails"/>
+                                            <Button text="Tải về" onAction="#onDownloadFile"/>
+                                        </children>
+                                    </HBox>
+                                    <HBox spacing="10">
+                                        <children>
+                                            <Label text="Tiến trình tải:"/>
+                                            <ProgressBar fx:id="downloadProgress" prefWidth="300" progress="0.0"/>
+                                            <Label fx:id="downloadStatusLabel" text="Chưa tải"/>
+                                        </children>
+                                    </HBox>
+                                </children>
+                            </VBox>
+                        </bottom>
+                    </BorderPane>
+                </Tab>
+
+                <!-- TAB 4: LỊCH SỬ TẢI -->
+                <Tab text="Lịch sử tải" closable="false">
+                    <BorderPane>
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+
+                        <top>
+                            <HBox spacing="10">
+                                <padding>
+                                    <Insets top="0" right="0" bottom="10" left="0"/>
+                                </padding>
+                                <children>
+                                    <Button text="Làm mới" onAction="#onRefreshHistory"/>
+                                    <Button text="Xóa lịch sử" onAction="#onClearHistory"/>
+                                </children>
+                            </HBox>
+                        </top>
+
+                        <center>
+                            <TableView fx:id="historyTable">
+                                <columns>
+                                    <TableColumn fx:id="colHistoryName" text="Tên file" prefWidth="200"/>
+                                    <TableColumn fx:id="colHistorySourcePeer" text="Nguồn (peer)" prefWidth="150"/>
+                                    <TableColumn fx:id="colHistorySize" text="Kích thước" prefWidth="100"/>
+                                    <TableColumn fx:id="colHistoryDate" text="Ngày tải" prefWidth="150"/>
+                                </columns>
+                            </TableView>
+                        </center>
+                    </BorderPane>
+                </Tab>
+            </tabs>
+        </TabPane>
+    </center>
+
+    <!-- THANH TRẠNG THÁI DƯỚI CÙNG -->
+    <bottom>
+        <HBox spacing="10" style="-fx-background-color: #eeeeee;">
+            <padding>
+                <Insets top="5" right="5" bottom="5" left="5"/>
+            </padding>
+            <children>
+                <Label text="Trạng thái:"/>
+                <Label fx:id="globalStatusLabel" text="Sẵn sàng"/>
+            </children>
+        </HBox>
+    </bottom>
+
+</BorderPane>
