@@ -7,28 +7,11 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
+import org.example.p2pfileshare.Model.PeerDiscovery;
+import org.example.p2pfileshare.Model.PeerInfo;
 
 public class MainController {
 
-    // ===== MODEL CHO PEER =====
-    public static class PeerInfo {
-        private final String name;
-        private final String ip;
-        private final int port;
-        private final String status;
-
-        public PeerInfo(String name, String ip, int port, String status) {
-            this.name = name;
-            this.ip = ip;
-            this.port = port;
-            this.status = status;
-        }
-
-        public String getName()   { return name; }
-        public String getIp()     { return ip; }
-        public int getPort()      { return port; }
-        public String getStatus() { return status; }
-    }
 
     // ===== DANH SÁCH PEER (DÙNG CHO TABLEVIEW) =====
     private final ObservableList<PeerInfo> peerList = FXCollections.observableArrayList();
@@ -74,9 +57,12 @@ public class MainController {
     // COMMON
     @FXML private TabPane mainTabPane;
     @FXML private Label globalStatusLabel;
+    private String myName = "Cuong4";
 
     @FXML
     public void initialize() {
+        int fileServerPort = 6003;
+        PeerDiscovery.startResponder(myName, fileServerPort);
         // ===== CẤU HÌNH BẢNG PEER =====
         // map tên property trong PeerInfo (getName, getIp, getPort, getStatus)
         colPeerName.setCellValueFactory(new PropertyValueFactory<>("name"));
@@ -118,20 +104,14 @@ public class MainController {
     // ===== MENU PEER / TAB PEER =====
     @FXML
     private void onScanPeers() {
-        // 1. Xóa danh sách cũ
         peerList.clear();
-        peerStatusLabel.setText("Đang quét peer (demo)...");
+        peerStatusLabel.setText("Đang quét peer trong LAN...");
+        // Quét trong 1 giây
+        java.util.List<PeerInfo> found = PeerDiscovery.discoverPeers(myName, 1000);
+        peerList.addAll(found);
 
-        // 2. DEMO: Thêm vài peer giả lập
-        // Sau này bạn thay đoạn này bằng code quét thật trong LAN
-        peerList.add(new PeerInfo("Peer A", "192.168.1.10", 5000, "Online"));
-        peerList.add(new PeerInfo("Peer B", "192.168.1.11", 5000, "Online"));
-        peerList.add(new PeerInfo("Peer C", "192.168.1.20", 5000, "Offline"));
-
-        peerStatusLabel.setText("Đã tìm thấy " + peerList.size() + " peer (demo)");
-
-        // Nếu muốn cập nhật status chung:
-        globalStatusLabel.setText("Scan peer LAN (demo) xong");
+        peerStatusLabel.setText("Đã tìm thấy " + found.size() + " peer");
+        globalStatusLabel.setText("Quét LAN xong");
     }
 
     @FXML

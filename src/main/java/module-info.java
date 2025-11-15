@@ -13,4 +13,6 @@ module org.example.p2pfileshare {
 
     opens org.example.p2pfileshare to javafx.fxml;
     exports org.example.p2pfileshare;
+    opens org.example.p2pfileshare.Model to javafx.base;
+
 }
