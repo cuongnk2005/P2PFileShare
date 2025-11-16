@@ -7,7 +7,7 @@ import java.util.List;
 public class PeerDiscovery {
 
     // Cổng UDP để phát hiện peer
-    public static final int DISCOVERY_PORT = 50000;
+    public static final int DISCOVERY_PORT = 50003;
 
     private static final String DISCOVER_MSG = "P2P_DISCOVER_REQUEST";
     private static final String RESPONSE_PREFIX = "P2P_DISCOVER_RESPONSE";
@@ -65,13 +65,24 @@ public class PeerDiscovery {
 
             // 1) Gửi gói broadcast
             byte[] data = DISCOVER_MSG.getBytes();
-            DatagramPacket packet = new DatagramPacket(
-                    data,
-                    data.length,
-                    InetAddress.getByName("255.255.255.255"),
-                    DISCOVERY_PORT
-            );
-            socket.send(packet);
+//            DatagramPacket packet = new DatagramPacket(
+//                    data,
+//                    data.length,
+//                    InetAddress.getByName("255.255.255.255"),
+//                    DISCOVERY_PORT
+//            );
+//            socket.send(packet);
+            int[] ports = {50000, 50001, 50002, 50003, 50004};
+
+            for (int p : ports) {
+                DatagramPacket packet = new DatagramPacket(
+                        data,
+                        data.length,
+                        InetAddress.getByName("255.255.255.255"),
+                        p
+                );
+                socket.send(packet);
+            }
             System.out.println("[Discovery] Sent broadcast");
 
             // 2) Nhận phản hồi cho đến khi timeout

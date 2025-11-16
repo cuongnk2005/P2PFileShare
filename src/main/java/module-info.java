@@ -8,8 +8,6 @@ module org.example.p2pfileshare {
     requires net.synedra.validatorfx;
     requires org.kordamp.ikonli.javafx;
     requires org.kordamp.bootstrapfx.core;
-    requires eu.hansolo.tilesfx;
-    requires com.almasb.fxgl.all;
 
     opens org.example.p2pfileshare to javafx.fxml;
     exports org.example.p2pfileshare;
