@@ -57,10 +57,15 @@ public class MainController {
     // COMMON
     @FXML private TabPane mainTabPane;
     @FXML private Label globalStatusLabel;
-    private String myName = "Cuong4";
+    private String myName;
 
     @FXML
     public void initialize() {
+        // Prompt for peer name
+        if (myName == null) {
+            myName = promptForPeerName();
+        }
+
         int fileServerPort = 6003;
         PeerDiscovery.startResponder(myName, fileServerPort);
         // ===== CẤU HÌNH BẢNG PEER =====
@@ -105,13 +110,55 @@ public class MainController {
     @FXML
     private void onScanPeers() {
         peerList.clear();
-        peerStatusLabel.setText("Đang quét peer trong LAN...");
-        // Quét trong 1 giây
-        java.util.List<PeerInfo> found = PeerDiscovery.discoverPeers(myName, 1000);
-        peerList.addAll(found);
+        if (peerStatusLabel != null) {
+            peerStatusLabel.setText("Đang quét peer trong LAN...");
+        }
+        // disable the table while scanning to prevent interactions
+        if (peerTable != null) {
+            peerTable.setDisable(true);
+        }
 
-        peerStatusLabel.setText("Đã tìm thấy " + found.size() + " peer");
-        globalStatusLabel.setText("Quét LAN xong");
+        // Run discovery on a background thread so UI stays responsive
+        javafx.concurrent.Task<java.util.List<PeerInfo>> task = new javafx.concurrent.Task<>() {
+            @Override
+            protected java.util.List<PeerInfo> call() throws Exception {
+                // call the blocking discovery method (timeout in ms)
+                return PeerDiscovery.discoverPeers(myName, 3000);
+            }
+        };
+
+        task.setOnSucceeded(evt -> {
+            java.util.List<PeerInfo> found = task.getValue();
+            // update ObservableList on the JavaFX Application Thread
+            peerList.setAll(found);
+            if (peerStatusLabel != null) {
+                peerStatusLabel.setText("Đã tìm thấy " + found.size() + " peer");
+            }
+            if (globalStatusLabel != null) {
+                globalStatusLabel.setText("Quét LAN xong");
+            }
+            if (peerTable != null) {
+                peerTable.setDisable(false);
+            }
+        });
+
+        task.setOnFailed(evt -> {
+            Throwable ex = task.getException();
+            ex.printStackTrace();
+            if (peerStatusLabel != null) {
+                peerStatusLabel.setText("Lỗi khi quét peer");
+            }
+            if (globalStatusLabel != null) {
+                globalStatusLabel.setText("Quét LAN thất bại");
+            }
+            if (peerTable != null) {
+                peerTable.setDisable(false);
+            }
+        });
+
+        Thread t = new Thread(task, "peer-scan");
+        t.setDaemon(true);
+        t.start();
     }
 
     @FXML
@@ -208,5 +255,14 @@ public class MainController {
         alert.setHeaderText(title);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    private String promptForPeerName() {
+        TextInputDialog dialog = new TextInputDialog("Peer1");
+        dialog.setTitle("Nhập tên Peer");
+        dialog.setHeaderText("Vui lòng nhập tên cho peer này");
+        dialog.setContentText("Tên Peer:");
+        var result = dialog.showAndWait();
+        return result.orElse("Peer_" + System.currentTimeMillis());
     }
 }
