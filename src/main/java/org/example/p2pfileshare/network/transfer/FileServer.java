@@ -1,4 +1,5 @@
-package org.example.p2pfileshare.Model;
+package org.example.p2pfileshare.network.transfer;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -28,15 +29,15 @@ public class FileServer {
                 e.printStackTrace();
             }
         });
-        t.setDaemon(true);
+        t.setDaemon(true); // server tự tắt khi ứng dụng đóng
         t.start();
     }
 
     private void handleClient(Socket client) {
         Thread t = new Thread(() -> {
             try (Socket s = client;
-                 DataInputStream in = new DataInputStream(s.getInputStream());
-                 DataOutputStream out = new DataOutputStream(s.getOutputStream())) {
+                 DataInputStream in = new DataInputStream(s.getInputStream()); // nhận dữ liệu
+                 DataOutputStream out = new DataOutputStream(s.getOutputStream())) { // gửi dữ liệu
 
                 // 1) Client gửi tên file (UTF)
                 String fileName = in.readUTF();
@@ -50,15 +51,18 @@ public class FileServer {
                     return;
                 }
 
+                // 2) Gửi kích thước
                 long size = Files.size(filePath);
-                out.writeLong(size); // 2) Gửi kích thước
+                out.writeLong(size);
 
                 // 3) Gửi nội dung file
                 try (InputStream fileIn = Files.newInputStream(filePath)) {
                     byte[] buffer = new byte[8192];
                     long remaining = size;
                     int read;
-                    while (remaining > 0 && (read = fileIn.read(buffer, 0, (int) Math.min(buffer.length, remaining))) != -1) {
+
+                    while (remaining > 0 &&
+                            (read = fileIn.read(buffer, 0, (int) Math.min(buffer.length, remaining))) != -1) {
                         out.write(buffer, 0, read);
                         remaining -= read;
                     }

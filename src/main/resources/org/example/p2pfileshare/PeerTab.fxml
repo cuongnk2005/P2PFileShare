@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.example.p2pfileshare.controller.PeerTabController">
+
+    <padding>
+        <Insets top="10" right="10" bottom="10" left="10"/>
+    </padding>
+
+    <top>
+        <HBox spacing="10">
+            <padding><Insets bottom="10"/></padding>
+            <children>
+                <Button text="Quét LAN" onAction="#onScanPeers"/>
+                <Button text="Kết nối..." onAction="#onConnectPeer"/>
+                <Button text="Ngắt kết nối" onAction="#onDisconnectPeer"/>
+                <Label text="Trạng thái:"/>
+                <Label fx:id="peerStatusLabel" text="Chưa kết nối"/>
+            </children>
+        </HBox>
+    </top>
+
+    <center>
+        <TableView fx:id="peerTable">
+            <columns>
+                <TableColumn fx:id="colPeerName" text="Tên peer" prefWidth="150"/>
+                <TableColumn fx:id="colPeerIp" text="IP" prefWidth="120"/>
+                <TableColumn fx:id="colPeerPort" text="Port" prefWidth="80"/>
+                <TableColumn fx:id="colPeerStatus" text="Trạng thái" prefWidth="100"/>
+            </columns>
+        </TableView>
+    </center>
+
+    <bottom>
+        <VBox spacing="10">
+            <children>
+                <HBox spacing="10">
+                    <children>
+                        <Label text="Tiến trình tải:"/>
+                        <ProgressBar fx:id="downloadProgress" prefWidth="300"/>
+                        <Label fx:id="downloadStatusLabel" text="Chưa tải"/>
+                    </children>
+                </HBox>
+                <HBox spacing="10">
+                    <children>
+                        <Button text="Tải file mẫu" onAction="#onDownloadFile"/>
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
+    </bottom>
+
+</BorderPane>

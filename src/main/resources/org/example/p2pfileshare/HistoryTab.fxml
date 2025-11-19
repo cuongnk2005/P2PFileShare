@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.example.p2pfileshare.controller.HistoryTabController">
+
+    <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+
+    <top>
+        <HBox spacing="10">
+            <children>
+                <Button text="Làm mới" onAction="#onRefreshHistory"/>
+                <Button text="Xóa lịch sử" onAction="#onClearHistory"/>
+            </children>
+        </HBox>
+    </top>
+
+    <center>
+        <TableView fx:id="historyTable">
+            <columns>
+                <TableColumn fx:id="colHistoryName" text="Tên file" prefWidth="200"/>
+                <TableColumn fx:id="colHistorySourcePeer" text="Nguồn (peer)" prefWidth="150"/>
+                <TableColumn fx:id="colHistorySize" text="Kích thước" prefWidth="100"/>
+                <TableColumn fx:id="colHistoryDate" text="Ngày tải" prefWidth="150"/>
+            </columns>
+        </TableView>
+    </center>
+
+</BorderPane>

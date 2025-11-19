@@ -1,4 +1,6 @@
-package org.example.p2pfileshare.Model;
+package org.example.p2pfileshare.network.discovery;
+import org.example.p2pfileshare.model.PeerInfo;
+
 import java.io.IOException;
 import java.net.*;
 import java.util.ArrayList;
@@ -7,7 +9,7 @@ import java.util.List;
 public class PeerDiscovery {
 
     // Cổng UDP để phát hiện peer
-    public static final int DISCOVERY_PORT = 50003;
+    public static final int DISCOVERY_PORT = 50002;
 
     private static final String DISCOVER_MSG = "P2P_DISCOVER_REQUEST";
     private static final String RESPONSE_PREFIX = "P2P_DISCOVER_RESPONSE";
@@ -56,7 +58,7 @@ public class PeerDiscovery {
      * Gửi 1 broadcast DISCOVER, đợi phản hồi trong timeoutMillis,
      * trả về danh sách PeerInfo.
      */
-    public static List<PeerInfo> discoverPeers(String myName,  int timeoutMillis) {
+    public static List<PeerInfo> discoverPeers(String myName, int timeoutMillis) {
         List<PeerInfo> result = new ArrayList<>();
 
         try (DatagramSocket socket = new DatagramSocket()) {
@@ -104,7 +106,7 @@ public class PeerDiscovery {
                             String ip = resp.getAddress().getHostAddress();
 
                             // nếu muốn, có thể bỏ qua chính mình bằng cách check myName hoặc ip
-                             if (peerName.equals(myName)) continue;
+                            if (peerName.equals(myName)) continue;
 
                             PeerInfo peer = new PeerInfo(peerName, ip, peerFilePort, "Online");
                             result.add(peer);
@@ -128,3 +130,4 @@ public class PeerDiscovery {
         return result;
     }
 }
+

@@ -1,6 +1,4 @@
-package org.example.p2pfileshare.Model;
-
-
+package org.example.p2pfileshare.network.transfer;
 
 import java.io.*;
 import java.net.Socket;
@@ -35,12 +33,13 @@ public class FileClient {
             }
 
             // 3) Nhận dữ liệu file
-            Files.createDirectories(saveToPath.getParent());
+            Files.createDirectories(saveToPath.getParent()); // tạo thư mục chứa file
             try (OutputStream fileOut = Files.newOutputStream(saveToPath)) {
                 byte[] buffer = new byte[8192];
                 long remaining = size;
                 int read;
-                while (remaining > 0 && (read = in.read(buffer, 0, (int) Math.min(buffer.length, remaining))) != -1) {
+                while (remaining > 0 &&
+                        (read = in.read(buffer, 0, (int) Math.min(buffer.length, remaining))) != -1) {
                     fileOut.write(buffer, 0, read);
                     remaining -= read;
                 }

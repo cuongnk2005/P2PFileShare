@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.example.p2pfileshare.controller.SearchTabController">
+
+    <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+
+    <top>
+        <VBox spacing="8">
+            <children>
+                <HBox spacing="10">
+                    <children>
+                        <Label text="Từ khóa:"/>
+                        <TextField fx:id="searchField" prefWidth="300"/>
+                        <Button text="Tìm kiếm" onAction="#onSearch"/>
+                    </children>
+                </HBox>
+                <HBox spacing="10">
+                    <children>
+                        <Label text="Lọc môn:"/>
+                        <TextField fx:id="filterSubjectField" prefWidth="150"/>
+                        <Label text="Peer:"/>
+                        <TextField fx:id="filterPeerField" prefWidth="150"/>
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
+    </top>
+
+    <center>
+        <TableView fx:id="searchResultTable">
+            <columns>
+                <TableColumn fx:id="colResultName" text="Tên file" prefWidth="200"/>
+                <TableColumn fx:id="colResultSubject" text="Môn học" prefWidth="120"/>
+                <TableColumn fx:id="colResultOwner" text="Chủ sở hữu" prefWidth="150"/>
+                <TableColumn fx:id="colResultPeer" text="Peer" prefWidth="120"/>
+                <TableColumn fx:id="colResultSize" text="Kích thước" prefWidth="100"/>
+            </columns>
+        </TableView>
+    </center>
+
+    <bottom>
+        <VBox spacing="8">
+            <children>
+                <HBox spacing="10">
+                    <Button text="Xem chi tiết" onAction="#onViewFileDetails"/>
+                    <Button text="Tải về" onAction="#onDownloadFile"/>
+                </HBox>
+
+                <HBox spacing="10">
+                    <Label text="Tiến trình tải:"/>
+                    <ProgressBar fx:id="downloadProgress" prefWidth="300"/>
+                    <Label fx:id="downloadStatusLabel" text="Chưa tải"/>
+                </HBox>
+            </children>
+        </VBox>
+    </bottom>
+
+</BorderPane>

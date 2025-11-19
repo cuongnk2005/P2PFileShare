@@ -1,4 +1,4 @@
-package org.example.p2pfileshare.Model;
+package org.example.p2pfileshare.model;
 
 public class PeerInfo {
     private final String name;
