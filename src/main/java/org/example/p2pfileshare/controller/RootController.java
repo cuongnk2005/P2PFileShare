@@ -39,7 +39,7 @@ public class RootController {
         // =========================
         // 2) KHỞI TẠO SERVICES
         // =========================
-        int fileServerPort = 6003;
+        int fileServerPort = 50002;
 //        PeerTCPServer tcpServer = new PeerTCPServer(fileServerPort, shareFolder);
         peerService      = new PeerService(myName, fileServerPort);
         fileShareService = new FileShareService(fileServerPort);
