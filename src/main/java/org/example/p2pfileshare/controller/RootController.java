@@ -1,81 +1,124 @@
 package org.example.p2pfileshare.controller;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.control.Label;
-import javafx.scene.control.TabPane;
-import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.*;
+
+import org.example.p2pfileshare.model.PeerInfo;
+import org.example.p2pfileshare.network.control.ControlClient;
+import org.example.p2pfileshare.network.control.ControlServer;
+import org.example.p2pfileshare.network.discovery.PeerDiscovery;
 import org.example.p2pfileshare.service.FileShareService;
 import org.example.p2pfileshare.service.HistoryService;
 import org.example.p2pfileshare.service.PeerService;
 import org.example.p2pfileshare.service.SearchService;
 
+import java.util.Random;
+
 public class RootController {
 
-    // FX Include controllers
+    // Include các tab con
     @FXML private PeerTabController peerTabController;
     @FXML private ShareTabController shareTabController;
     @FXML private SearchTabController searchTabController;
     @FXML private HistoryTabController historyTabController;
 
-    // Global UI
     @FXML private TabPane mainTabPane;
     @FXML private Label globalStatusLabel;
 
-    // Service Layer
+    // Services
     private PeerService peerService;
     private FileShareService fileShareService;
     private SearchService searchService;
     private HistoryService historyService;
 
+    // Control channel
+    private ControlServer controlServer;
+    private ControlClient controlClient;
+
+    // Peer info
     private String myName;
+
+    // Random port để chạy nhiều peer trên cùng 1 PC
+    private final int DISCOVERY_PORT = 50000 + new Random().nextInt(4);
+    private final int FILE_PORT      = 6000  + new Random().nextInt(1000);
+    private final int CONTROL_PORT   = 7000  + new Random().nextInt(1000);
 
     @FXML
     public void initialize() {
-        // =========================
-        // 1) LẤY TÊN PEER
-        // =========================
+
+        // 1) Hỏi tên peer
         myName = askPeerName();
 
-        // =========================
-        // 2) KHỞI TẠO SERVICES
-        // =========================
-        int fileServerPort = 6003;
-//        PeerTCPServer tcpServer = new PeerTCPServer(fileServerPort, shareFolder);
-        peerService      = new PeerService(myName, fileServerPort);
-        fileShareService = new FileShareService(fileServerPort);
+        // 2) Khởi tạo service
+        peerService      = new PeerService(myName, FILE_PORT, CONTROL_PORT);
+        fileShareService = new FileShareService(FILE_PORT);
         searchService    = new SearchService();
         historyService   = new HistoryService();
 
-        // =========================
-        // 3) INJECT SERVICE VÀO CÁC TAB
-        // =========================
+        // 3) ControlClient để gửi request CONNECT
+        controlClient = new ControlClient(myName);
 
-        if (peerTabController != null) {
-            peerTabController.init(peerService, fileShareService, globalStatusLabel);
-        }
+        // 4) ControlServer để nhận CONNECT_REQUEST
+        controlServer = new ControlServer(CONTROL_PORT, fromPeer -> {
+            // Hỏi người dùng bằng JavaFX, nhưng phải block đến khi họ chọn xong
+            java.util.concurrent.atomic.AtomicBoolean accepted = new java.util.concurrent.atomic.AtomicBoolean(false);
+            java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
 
-        if (shareTabController != null) {
+            javafx.application.Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                alert.setTitle("Yêu cầu kết nối");
+                alert.setHeaderText("Peer " + fromPeer + " muốn kết nối với bạn");
+                alert.setContentText("Bạn có đồng ý không?");
+
+                var result = alert.showAndWait();
+                boolean ok = result.isPresent() && result.get().getButtonData().isDefaultButton();
+                accepted.set(ok);
+                latch.countDown();
+            });
+
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            return accepted.get();
+        });
+        controlServer.start();
+
+        System.out.println("[Root] ControlServer started at port " + CONTROL_PORT);
+
+        // 5) Bật Discovery Responder
+        PeerDiscovery.startResponder(
+                myName,
+                FILE_PORT,
+                CONTROL_PORT
+        );
+        System.out.println("[Root] Discovery responder started on UDP " + DISCOVERY_PORT);
+
+        // 6) Inject service vào UI controllers
+        if (peerTabController != null)
+            peerTabController.init(peerService, fileShareService, controlClient, globalStatusLabel);
+
+        if (shareTabController != null)
             shareTabController.init(fileShareService, globalStatusLabel);
-        }
 
-        if (searchTabController != null) {
-            searchTabController.init(searchService, fileShareService, globalStatusLabel);
-        }
+        if (searchTabController != null)
+            searchTabController.init(searchService, fileShareService, controlClient, globalStatusLabel);
 
-        if (historyTabController != null) {
+        if (historyTabController != null)
             historyTabController.init(historyService, globalStatusLabel);
-        }
 
         globalStatusLabel.setText("Sẵn sàng");
     }
 
-    // -------------------------------
-    // CHỨC NĂNG MENU TRONG MAINVIEW
-    // -------------------------------
+    // ================= MENU =================
 
     @FXML
     private void onChooseShareFolder() {
         globalStatusLabel.setText("Hãy vào tab 'Tài liệu chia sẻ' để chọn thư mục.");
+        mainTabPane.getSelectionModel().select(1);
     }
 
     @FXML
@@ -85,24 +128,19 @@ public class RootController {
 
     @FXML
     private void onAbout() {
-        javafx.scene.control.Alert alert =
-                new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
-
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Giới thiệu");
         alert.setHeaderText("P2P File Sharing - JavaFX");
         alert.setContentText("Ứng dụng chia sẻ file ngang hàng trong LAN.");
         alert.showAndWait();
     }
 
-    // -------------------------------
-    // HÀM HỖ TRỢ
-    // -------------------------------
-
+    // ================= HỖ TRỢ =================
     private String askPeerName() {
         TextInputDialog dialog = new TextInputDialog("Peer1");
         dialog.setTitle("Tên Peer");
-        dialog.setHeaderText("Vui lòng nhập tên của bạn");
-        dialog.setContentText("Peer name:");
+        dialog.setHeaderText("Nhập tên Peer:");
+        dialog.setContentText("Tên:");
 
         return dialog.showAndWait().orElse("Peer_" + System.currentTimeMillis());
     }
