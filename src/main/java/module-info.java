@@ -2,7 +2,7 @@ module org.example.p2pfileshare {
     requires javafx.controls;
     requires javafx.fxml;
     requires javafx.web;
-
+    requires java.prefs;
     requires org.controlsfx.controls;
     requires com.dlsc.formsfx;
     requires net.synedra.validatorfx;

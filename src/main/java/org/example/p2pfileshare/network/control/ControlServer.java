@@ -1,34 +1,45 @@
 package org.example.p2pfileshare.network.control;
 
+import org.example.p2pfileshare.service.FileShareService;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
  * Lắng nghe các yêu cầu điều khiển:
  * - CONNECT_REQUEST|fromPeer|toPeer
+ * - LIST_FILES|fromPeer|toPeer
  *
  * Sau khi nhận:
- *   1) Gọi callback onIncomingConnect(fromPeer) -> boolean accept
- *   2) Trả về 1 dòng:
- *        CONNECT_ACCEPT|toPeer|fromPeer|note
- *      hoặc
- *        CONNECT_REJECT|toPeer|fromPeer|note
+ *   1) CONNECT_REQUEST -> hỏi onIncomingConnect(fromPeer)
+ *   2) LIST_FILES -> trả tên file được chia sẻ (top-level) dạng TSV trong note
  */
 public class ControlServer {
 
     private final int port;
     private volatile boolean running = false;
 
-    /**
-     * callback: nhận tên peer gửi yêu cầu, trả true nếu chấp nhận, false nếu từ chối
-     */
+    // Đã chấp nhận kết nối từ peerId nào
+    private final Set<String> acceptedPeers = ConcurrentHashMap.newKeySet();
+    /** callback: nhận peerId gửi yêu cầu, trả true nếu chấp nhận, false nếu từ chối */
     private final Function<String, Boolean> onIncomingConnect;
+
+    // Để trả danh sách file local
+    private FileShareService fileShareService;
 
     public ControlServer(int port, Function<String, Boolean> onIncomingConnect) {
         this.port = port;
         this.onIncomingConnect = onIncomingConnect;
+    }
+
+    // Cho phép inject FileShareService để phục vụ LIST_FILES
+    public void setFileShareService(FileShareService fileShareService) {
+        this.fileShareService = fileShareService;
     }
 
     public void start() {
@@ -66,8 +77,8 @@ public class ControlServer {
         Thread t = new Thread(() -> {
             try (Socket s = socket;
                  BufferedReader reader = new BufferedReader(
-                         new InputStreamReader(s.getInputStream()));
-                 PrintWriter writer = new PrintWriter(
+                         new InputStreamReader(s.getInputStream()))
+            ;     PrintWriter writer = new PrintWriter(
                          new OutputStreamWriter(s.getOutputStream()), true)) {
 
                 String raw = reader.readLine();
@@ -86,6 +97,9 @@ public class ControlServer {
                     if (onIncomingConnect != null) {
                         try {
                             accept = Boolean.TRUE.equals(onIncomingConnect.apply(fromPeer));
+                            if (accept) {
+                                acceptedPeers.add(fromPeer);
+                            }
                         } catch (Exception ex) {
                             ex.printStackTrace();
                             accept = false;
@@ -107,6 +121,35 @@ public class ControlServer {
                     writer.println(resp);
                     System.out.println("[ControlServer] Sent: " + resp);
                 }
+                else if (ControlProtocol.LIST_FILES.equals(msg.command)) {
+                    // Trả về danh sách file chia sẻ (tên/relative path)
+                    String toPeer   = msg.toPeer;   // mình
+                    String fromPeer = msg.fromPeer; // client
+                    // CHẶN NẾU CHƯA ĐƯỢC ACCEPT
+                    if (!acceptedPeers.contains(fromPeer)) {
+                        System.out.println("[ControlServer] DENY LIST_FILES from " + fromPeer);
+                        String denyResp = ControlProtocol.build(
+                                ControlProtocol.LIST_FILES_RESPONSE,
+                                msg.toPeer,
+                                fromPeer,
+                                ""   // payload rỗng
+                        );
+                        writer.println(denyResp);
+                        return;
+                    }
+                    // Build payload TSV: fileName\trelativePath\tsize
+                    String payload = buildFileListPayload();
+
+                    String resp = ControlProtocol.build(
+                            ControlProtocol.LIST_FILES_RESPONSE,
+                            toPeer,     // from = mình
+                            fromPeer,   // to   = requester
+                            payload
+                    );
+
+                    writer.println(resp);
+                    System.out.println("[ControlServer] Sent LIST_FILES_RESPONSE (" + payload.length() + " bytes)");
+                }
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -115,5 +158,25 @@ public class ControlServer {
 
         t.setDaemon(true);
         t.start();
+    }
+
+    private String buildFileListPayload() {
+        if (fileShareService == null) return "";
+        List<org.example.p2pfileshare.model.SharedFileLocal> list = fileShareService.listSharedFiles();
+        StringBuilder sb = new StringBuilder();
+        for (var f : list) {
+            // Encode tab-safe by replacing tabs/newlines
+            String name = safe(f.getFileName());
+            String rel  = safe(f.getRelativePath());
+            long size   = f.getSize();
+            if (sb.length() > 0) sb.append("\n");
+            sb.append(name).append('\t').append(rel).append('\t').append(size);
+        }
+        return sb.toString();
+    }
+
+    private String safe(String s) {
+        if (s == null) return "";
+        return s.replace("\t", " ").replace("\n", " ");
     }
 }

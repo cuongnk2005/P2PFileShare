@@ -7,7 +7,9 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
+import org.example.p2pfileshare.model.SharedFileLocal;
 import org.example.p2pfileshare.service.FileShareService;
+import org.example.p2pfileshare.util.AppConfig;
 
 import java.io.File;
 import java.util.List;
@@ -17,78 +19,132 @@ public class ShareTabController {
     private FileShareService fileShareService;
     private Label globalStatusLabel;
 
-    @FXML private TextField shareFolderField;
-    @FXML private TableView<File> sharedFileTable;
-    @FXML private TableColumn<File, String> colSharedName;
-    @FXML private TableColumn<File, String> colSharedType;
-    @FXML private TableColumn<File, Long>   colSharedSize;
+    private static final String KEY_SHARE_DIR = "shared_folder";
 
-    private final ObservableList<File> sharedFiles = FXCollections.observableArrayList();
+    @FXML private TextField shareFolderField;
+
+    // =======================
+    // TableView dùng SharedFileLocal
+    // =======================
+    @FXML private TableView<SharedFileLocal> sharedFileTable;
+    @FXML private TableColumn<SharedFileLocal, String> colSharedName;
+    @FXML private TableColumn<SharedFileLocal, String> colSharedType;
+    @FXML private TableColumn<SharedFileLocal, Long>   colSharedSize;
+    @FXML private TableColumn<SharedFileLocal, String> colSharedSubject;
+    @FXML private TableColumn<SharedFileLocal, String> colSharedTags;
+    @FXML private TableColumn<SharedFileLocal, Boolean> colSharedVisibility;
+
+    private final ObservableList<SharedFileLocal> sharedFiles =
+            FXCollections.observableArrayList();
 
     public void init(FileShareService fileShareService, Label globalStatusLabel) {
         this.fileShareService = fileShareService;
         this.globalStatusLabel = globalStatusLabel;
 
         setupTable();
+        loadLastSharedFolder();
     }
 
+    // ==========================
+    // Setup bảng hiển thị file
+    // ==========================
     private void setupTable() {
-        colSharedName.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().getName()));
-        colSharedType.setCellValueFactory(c -> {
-            String name = c.getValue().getName();
-            int idx = name.lastIndexOf('.');
-            String ext = (idx >= 0) ? name.substring(idx + 1) : "";
-            return new javafx.beans.property.SimpleStringProperty(ext);
-        });
-        colSharedSize.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleLongProperty(c.getValue().length()).asObject()
-        );
+        colSharedName.setCellValueFactory(new PropertyValueFactory<>("fileName"));
+        colSharedType.setCellValueFactory(new PropertyValueFactory<>("extension"));
+        colSharedSize.setCellValueFactory(new PropertyValueFactory<>("size"));
+        colSharedSubject.setCellValueFactory(new PropertyValueFactory<>("subject"));
+        colSharedTags.setCellValueFactory(new PropertyValueFactory<>("tags"));
+        colSharedVisibility.setCellValueFactory(new PropertyValueFactory<>("visible"));
         sharedFileTable.setItems(sharedFiles);
     }
 
+    // =============================================
+    // Load thư mục chia sẻ đã lưu trong AppConfig
+    // =============================================
+    private void loadLastSharedFolder() {
+        String last = AppConfig.load(KEY_SHARE_DIR);
+        if (last != null) {
+            File dir = new File(last);
+            if (dir.isDirectory()) {
+                applyShareFolder(dir);
+            }
+        }
+    }
+
+    private void applyShareFolder(File dir) {
+        shareFolderField.setText(dir.getAbsolutePath());
+        fileShareService.setShareFolder(dir);
+        refreshSharedFiles();
+
+        if (globalStatusLabel != null) {
+            globalStatusLabel.setText("Thư mục chia sẻ: " + dir.getName());
+        }
+    }
+
+    // ==========================
+    // Chọn thư mục chia sẻ
+    // ==========================
     @FXML
     private void onChooseFolder() {
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle("Chọn thư mục chia sẻ");
+
+        String last = AppConfig.load(KEY_SHARE_DIR);
+        if (last != null) {
+            File prev = new File(last);
+            if (prev.isDirectory()) chooser.setInitialDirectory(prev);
+        }
+
         Stage stage = (Stage) shareFolderField.getScene().getWindow();
         File dir = chooser.showDialog(stage);
+
         if (dir != null) {
             shareFolderField.setText(dir.getAbsolutePath());
+            AppConfig.save(KEY_SHARE_DIR, dir.getAbsolutePath());
             fileShareService.setShareFolder(dir);
+
             refreshSharedFiles();
+
             if (globalStatusLabel != null) {
                 globalStatusLabel.setText("Thư mục chia sẻ: " + dir.getName());
             }
         }
     }
 
+    // ==========================
+    // Refresh lại bảng file
+    // ==========================
     @FXML
     private void onRefreshSharedFiles() {
         refreshSharedFiles();
     }
 
     private void refreshSharedFiles() {
-        List<File> list = fileShareService.listSharedFiles();
+        List<SharedFileLocal> list = fileShareService.listSharedFiles();
         sharedFiles.setAll(list);
     }
 
+    // ==========================
+    // Chưa implement add/remove
+    // ==========================
     @FXML
     private void onAddSharedFile() {
-        // TODO: copy file vào thư mục chia sẻ (tạm thời để trống)
-        Alert a = new Alert(Alert.AlertType.INFORMATION, "Demo: thêm file vào thư mục chia sẻ bằng cách copy thủ công.");
+        Alert a = new Alert(Alert.AlertType.INFORMATION,
+                "Demo: thêm file vào thư mục chia sẻ bằng cách copy thủ công.");
         a.showAndWait();
     }
 
     @FXML
     private void onRemoveSharedFile() {
-        File selected = sharedFileTable.getSelectionModel().getSelectedItem();
+        SharedFileLocal selected = sharedFileTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
             Alert a = new Alert(Alert.AlertType.INFORMATION, "Chưa chọn file để xóa.");
             a.showAndWait();
             return;
         }
-        // TODO: xoá file hoặc đổi trạng thái "không chia sẻ nữa"
-        Alert a = new Alert(Alert.AlertType.INFORMATION, "Demo: chưa xoá file thật, chỉ minh hoạ.");
+
+        Alert a = new Alert(Alert.AlertType.INFORMATION,
+                "Demo: chưa xoá file thật, chỉ minh hoạ.");
         a.showAndWait();
     }
 }

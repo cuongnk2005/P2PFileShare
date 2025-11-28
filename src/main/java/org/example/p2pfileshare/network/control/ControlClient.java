@@ -4,11 +4,14 @@ import org.example.p2pfileshare.model.PeerInfo;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Client cho kênh điều khiển:
  * - Gửi CONNECT_REQUEST tới peer khác.
  * - Đọc CONNECT_ACCEPT / CONNECT_REJECT trả về.
+ * - LIST_FILES để lấy danh sách file chia sẻ (tối giản: tên/relative/size)
  */
 public class ControlClient {
 
@@ -70,10 +73,10 @@ public class ControlClient {
             // EXPECT:
             //   fromPeer = bên kia (peerId)
             //   toPeer   = myPeerId
-                if (!myPeerId.equals(parsed.toPeer)) {
-                    System.out.println("[ControlClient] Response not for me → " + parsed.toPeer);
-                    return false;
-                }
+            if (!myPeerId.equals(parsed.toPeer)) {
+                System.out.println("[ControlClient] Response not for me → " + parsed.toPeer);
+                return false;
+            }
 
             if (ControlProtocol.CONNECT_ACCEPT.equals(parsed.command)) {
                 System.out.println("[ControlClient] CONNECT_ACCEPT from " + parsed.fromPeer);
@@ -91,6 +94,67 @@ public class ControlClient {
         } catch (IOException e) {
             e.printStackTrace();
             return false;
+        }
+    }
+
+    /**
+     * Lấy danh sách file chia sẻ từ peer đích qua kênh điều khiển (đơn giản)
+     */
+    public List<RemoteFile> listFiles(PeerInfo peer) {
+        return listFiles(peer.getIp(), peer.getControlPort(), peer.getPeerId());
+    }
+
+    public List<RemoteFile> listFiles(String host, int controlPort, String toPeer) {
+        System.out.println("[ControlClient] Request LIST_FILES → " + toPeer);
+        List<RemoteFile> files = new ArrayList<>();
+
+        try (Socket socket = new Socket(host, controlPort);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true)) {
+
+            String msg = ControlProtocol.build(ControlProtocol.LIST_FILES, myPeerId, toPeer);
+            writer.println(msg);
+
+            String respRaw = reader.readLine();
+            if (respRaw == null) return files;
+
+            ControlProtocol.ParsedMessage parsed = ControlProtocol.parse(respRaw);
+            if (parsed == null) return files;
+
+            if (!myPeerId.equals(parsed.toPeer)) return files;
+
+            if (ControlProtocol.LIST_FILES_RESPONSE.equals(parsed.command)) {
+                String payload = parsed.note != null ? parsed.note : "";
+                // Parse TSV lines: name\trelative\tsize
+                String[] lines = payload.split("\n");
+                for (String line : lines) {
+                    if (line.isBlank()) continue;
+                    String[] cols = line.split("\t");
+                    String name = cols.length > 0 ? cols[0] : "";
+                    String rel  = cols.length > 1 ? cols[1] : name;
+                    long size   = 0L;
+                    try {
+                        size = cols.length > 2 ? Long.parseLong(cols[2]) : 0L;
+                    } catch (NumberFormatException ignored) {}
+                    files.add(new RemoteFile(name, rel, size));
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return files;
+    }
+
+    // DTO đơn giản cho UI
+    public static class RemoteFile {
+        public final String name;
+        public final String relativePath;
+        public final long size;
+        public RemoteFile(String name, String relativePath, long size) {
+            this.name = name;
+            this.relativePath = relativePath;
+            this.size = size;
         }
     }
 

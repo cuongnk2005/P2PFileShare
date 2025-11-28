@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.p2pfileshare.controller.ConnectedPeerController">
+    <children>
+        <VBox spacing="8.0" AnchorPane.topAnchor="8.0" AnchorPane.bottomAnchor="8.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0">
+            <HBox spacing="8.0">
+                <Label text="Peer:" />
+                <Label fx:id="peerNameLabel" />
+                <Button text="Reload" onAction="#onReload" />
+                <Button text="Ngắt kết nối" onAction="#onDisconnect" />
+            </HBox>
+            <TableView fx:id="fileTable" prefHeight="400.0">
+                <columns>
+                    <TableColumn fx:id="colName" text="Tên file" prefWidth="250" />
+                    <TableColumn fx:id="colSize" text="Kích thước" prefWidth="120" />
+                    <TableColumn fx:id="colRelative" text="Đường dẫn" prefWidth="250" />
+                </columns>
+            </TableView>
+            <HBox spacing="8.0">
+                <Button text="Tải xuống" onAction="#onDownloadSelected" />
+                <ProgressBar fx:id="progress" prefWidth="300.0" />
+                <Label fx:id="statusLabel" text="" />
+            </HBox>
+        </VBox>
+    </children>
+</AnchorPane>
+

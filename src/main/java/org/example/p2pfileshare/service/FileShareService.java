@@ -1,34 +1,60 @@
 package org.example.p2pfileshare.service;
 
 import org.example.p2pfileshare.model.PeerInfo;
+import org.example.p2pfileshare.model.SharedFileLocal;
 import org.example.p2pfileshare.network.transfer.FileClient;
 import org.example.p2pfileshare.network.transfer.FileServer;
 
 import java.io.File;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 public class FileShareService {
 
-    private final int fileServerPort;
-    private File shareFolder;
-    private FileServer fileServer;
+    private final int fileServerPort;    // cổng cho FileServer
+    private File shareFolder;            // thư mục đang chia sẻ, client gửi den
+    private FileServer fileServer;       // server gửi file cho peer khác
 
     public FileShareService(int fileServerPort) {
         this.fileServerPort = fileServerPort;
     }
 
-    public void setShareFolder(File folder) {
-        this.shareFolder = folder;
-        // Start/Restart file server
-        if (fileServer != null) {
-            // hiện tại FileServer không có stop(), nên bỏ qua
+    // ======================
+    //    KHỞI TẠO SERVER
+    // ======================
+    public synchronized void startServer() {
+        if (fileServer == null && shareFolder != null) {
+            fileServer = new FileServer(fileServerPort, shareFolder.toPath());
+            fileServer.start();
         }
-        if (folder != null && folder.exists() && folder.isDirectory()) {
+    }
+
+    // =================================
+    //      ĐỔI FOLDER CHIA SẺ RUNTIME
+    // =================================
+    public synchronized void setShareFolder(File folder) {
+
+        // folder null → không chia sẻ gì
+        if (folder == null || !folder.exists() || !folder.isDirectory()) {
+            this.shareFolder = null;
+            if (fileServer != null) {
+                fileServer.changeFolder(null);
+            }
+            return;
+        }
+
+        // set thư mục mới
+        this.shareFolder = folder;
+
+        // nếu server chưa chạy → khởi động
+        if (fileServer == null) {
             fileServer = new FileServer(fileServerPort, folder.toPath());
             fileServer.start();
+        }
+        // nếu server đang chạy → đổi folder ngay lập tức (không restart)
+        else {
+            fileServer.changeFolder(folder.toPath());
         }
     }
 
@@ -36,27 +62,86 @@ public class FileShareService {
         return shareFolder;
     }
 
-    /** tải file từ peer */
-    public boolean download(PeerInfo peer, String fileName, Path saveTo) {
+    // ==============================
+    //        TẢI FILE TỪ PEER
+    // ==============================
+    public boolean download(PeerInfo peer, String relativePath, Path saveTo) {
         return FileClient.downloadFile(
                 peer.getIp(),
                 peer.getFileServerPort(),
-                fileName,
+                relativePath,
                 saveTo
         );
     }
 
-    /** trả về danh sách file trong thư mục shareFolder */
-    public List<File> listSharedFiles() {
-        List<File> result = new ArrayList<>();
-        if (shareFolder == null || !shareFolder.exists()) return result;
+    // ==============================
+    //    LIỆT KÊ FILE LOCAL SHARE
+    // ==============================
+    public List<SharedFileLocal> listSharedFiles() {
+        List<SharedFileLocal> result = new ArrayList<>();
+
+        if (shareFolder == null) return result;
 
         File[] files = shareFolder.listFiles();
-        if (files != null) {
-            for (File f : files) {
-                if (f.isFile()) result.add(f);
+        if (files == null) return result;
+
+        for (File f : files) {
+            if (f.isFile()) {
+                result.add(buildMetadata(f));
             }
         }
+
         return result;
+    }
+
+    // ==============================
+    //        BUILD METADATA
+    // ==============================
+    private SharedFileLocal buildMetadata(File f) {
+
+        String fileName = f.getName();
+        long size = f.length();
+
+        // relative path để phía Client dùng khi tải file
+        String relativePath = shareFolder.toPath()
+                .relativize(f.toPath())
+                .toString();
+
+        String extension = "";
+        int dot = fileName.lastIndexOf('.');
+        if (dot >= 0 && dot < fileName.length() - 1) {
+            extension = fileName.substring(dot + 1).toLowerCase();
+        }
+
+        String subject = detectSubject(folderNameOrFileName(f));
+        String tags = "Toán";
+
+        return new SharedFileLocal(
+                fileName,
+                relativePath,
+                extension,
+                size,
+                subject,
+                tags,
+                true
+        );
+    }
+
+    private String detectSubject(String name) {
+        name = name.toLowerCase();
+
+        if (name.contains("java") || name.contains("oop")) return "Java";
+        if (name.contains("network")) return "Network";
+        if (name.contains("os") || name.contains("process") || name.contains("thread")) return "Operating System";
+        if (name.contains("ai") || name.contains("machine")) return "AI";
+        if (name.contains("math")) return "Math";
+
+        return "Khác";
+    }
+
+    private String folderNameOrFileName(File f) {
+        File parent = f.getParentFile();
+        if (parent != null) return parent.getName() + " " + f.getName();
+        return f.getName();
     }
 }

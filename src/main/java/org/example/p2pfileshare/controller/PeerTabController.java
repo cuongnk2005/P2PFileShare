@@ -4,13 +4,17 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.AnchorPane;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.network.control.ControlClient;
 import org.example.p2pfileshare.service.FileShareService;
 import org.example.p2pfileshare.service.PeerService;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -27,6 +31,7 @@ public class PeerTabController {
     @FXML private TableColumn<PeerInfo, Number> colPeerPort;
     @FXML private TableColumn<PeerInfo, String> colPeerStatus;
     @FXML private Label peerStatusLabel;
+    @FXML private TabPane mainTabPane; // nếu không có trong FXML, có thể set từ RootController
 
     @FXML private ProgressBar downloadProgress;
     @FXML private Label downloadStatusLabel;
@@ -124,6 +129,7 @@ public class PeerTabController {
             if (ok) {
                 peer.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
                 peerStatusLabel.setText("Kết nối thành công!");
+                openConnectedTab(peer);
             } else {
                 peer.setConnectionState(PeerInfo.ConnectionState.REJECTED);
                 peerStatusLabel.setText("Peer từ chối hoặc không phản hồi");
@@ -132,6 +138,40 @@ public class PeerTabController {
         });
 
         new Thread(task).start();
+    }
+
+    private void openConnectedTab(PeerInfo peer) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConnectedPeerTab.fxml"));
+            AnchorPane content = loader.load();
+
+            ConnectedPeerController controller = loader.getController();
+            controller.init(peer, controlClient, fileShareService);
+
+            Tab tab = new Tab("Kết nối: " + peer.getName());
+            tab.setContent(content);
+            tab.setClosable(true);
+
+            // tìm TabPane từ một control trong scene
+            TabPane tabPane = mainTabPane;
+            if (tabPane == null) {
+                // fallback: tìm TabPane cha của bảng
+                Node n = peerTable;
+                while (n != null && !(n instanceof TabPane)) {
+                    n = n.getParent();
+                }
+                if (n instanceof TabPane) tabPane = (TabPane) n;
+            }
+            if (tabPane != null) {
+                tabPane.getTabs().add(tab);
+                tabPane.getSelectionModel().select(tab);
+            } else {
+                new Alert(Alert.AlertType.WARNING, "Không tìm thấy TabPane để mở tab mới").showAndWait();
+            }
+
+        } catch (IOException ex) {
+            new Alert(Alert.AlertType.ERROR, "Lỗi tải UI tab kết nối: " + ex.getMessage()).showAndWait();
+        }
     }
 
     @FXML

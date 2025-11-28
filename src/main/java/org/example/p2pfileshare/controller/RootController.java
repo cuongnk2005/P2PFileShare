@@ -12,6 +12,7 @@ import org.example.p2pfileshare.service.FileShareService;
 import org.example.p2pfileshare.service.HistoryService;
 import org.example.p2pfileshare.service.PeerService;
 import org.example.p2pfileshare.service.SearchService;
+import org.example.p2pfileshare.util.AppConfig;
 
 import java.util.Random;
 import java.util.UUID;
@@ -42,12 +43,12 @@ public class RootController {
     private String myName; // displayName
     private final int FILE_PORT      = 6000  + new Random().nextInt(1000);
     private final int CONTROL_PORT   = 7000  + new Random().nextInt(1000);
-
+    private static final String KEY_PEER_NAME = "peer_display_name";
     @FXML
     public void initialize() {
 
         // 1) Hỏi tên peer
-        myName = askPeerName();
+        myName = loadOrAskPeerName();
         myPeerId = UUID.randomUUID().toString();
 
         // 2) Khởi tạo service
@@ -86,6 +87,8 @@ public class RootController {
 
             return accepted.get();
         });
+        // inject FileShareService để phục vụ LIST_FILES
+        controlServer.setFileShareService(fileShareService);
         controlServer.start();
 
         System.out.println("[Root] ControlServer started at port " + CONTROL_PORT);
@@ -138,12 +141,25 @@ public class RootController {
     }
 
     // ================= HỖ TRỢ =================
-    private String askPeerName() {
+
+    private String loadOrAskPeerName() {
+        // 1) Load tên đã lưu
+        String saved = AppConfig.load(KEY_PEER_NAME);
+        if (saved != null && !saved.isBlank()) {
+            return saved; // ✔ Có tên rồi → dùng luôn
+        }
+
+        // 2) Chưa có → hỏi tên người dùng
         TextInputDialog dialog = new TextInputDialog("Peer1");
         dialog.setTitle("Tên Peer");
         dialog.setHeaderText("Nhập tên Peer:");
         dialog.setContentText("Tên:");
 
-        return dialog.showAndWait().orElse("Peer_" + System.currentTimeMillis());
+        String name = dialog.showAndWait().orElse("Peer_" + System.currentTimeMillis());
+
+        // 3) Lưu lại để lần sau khỏi hỏi
+        AppConfig.save(KEY_PEER_NAME, name);
+
+        return name;
     }
 }
