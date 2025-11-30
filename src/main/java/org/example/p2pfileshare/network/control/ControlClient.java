@@ -125,8 +125,10 @@ public class ControlClient {
 
             if (ControlProtocol.LIST_FILES_RESPONSE.equals(parsed.command)) {
                 String payload = parsed.note != null ? parsed.note : "";
+                System.out.println("[DEBUG] Payload nhận được:\n" + payload);
                 // Parse TSV lines: name\trelative\tsize
-                String[] lines = payload.split("\n");
+                String[] lines = payload.split("<NL>");
+                System.out.println("Số dòng: " + lines.length);
                 for (String line : lines) {
                     if (line.isBlank()) continue;
                     String[] cols = line.split("\t");

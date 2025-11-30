@@ -139,7 +139,7 @@ public class ControlServer {
                     }
                     // Build payload TSV: fileName\trelativePath\tsize
                     String payload = buildFileListPayload();
-
+                    System.out.println("[DEBUG] Payload gửi đi:\n" + payload);
                     String resp = ControlProtocol.build(
                             ControlProtocol.LIST_FILES_RESPONSE,
                             toPeer,     // from = mình
@@ -169,7 +169,7 @@ public class ControlServer {
             String name = safe(f.getFileName());
             String rel  = safe(f.getRelativePath());
             long size   = f.getSize();
-            if (sb.length() > 0) sb.append("\n");
+            if (sb.length() > 0) sb.append("<NL>");
             sb.append(name).append('\t').append(rel).append('\t').append(size);
         }
         return sb.toString();
