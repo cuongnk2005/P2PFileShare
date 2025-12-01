@@ -6,10 +6,12 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.FileChooser;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.network.control.ControlClient;
 import org.example.p2pfileshare.service.FileShareService;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -41,8 +43,40 @@ public class ConnectedPeerController {
         colSize.setCellValueFactory(new PropertyValueFactory<>("size"));
         fileTable.setItems(rows);
 
+        // Thêm context menu chuột phải
+        setupContextMenu();
+
         // nạp lần đầu
         reload();
+    }
+
+    private void setupContextMenu() {
+        ContextMenu contextMenu = new ContextMenu();
+
+        MenuItem downloadItem = new MenuItem("Tải xuống");
+        downloadItem.setOnAction(e -> {
+            Row selected = fileTable.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                downloadFile(selected);
+            }
+        });
+
+        contextMenu.getItems().add(downloadItem);
+
+        // Chỉ hiển thị menu khi có item được chọn
+        fileTable.setContextMenu(contextMenu);
+
+        // Hoặc có thể hiển thị menu chỉ khi chuột phải vào row có dữ liệu
+        fileTable.setRowFactory(tv -> {
+            TableRow<Row> row = new TableRow<>();
+            row.setOnContextMenuRequested(event -> {
+                if (!row.isEmpty()) {
+                    fileTable.getSelectionModel().select(row.getItem());
+                    contextMenu.show(row, event.getScreenX(), event.getScreenY());
+                }
+            });
+            return row;
+        });
     }
 
     @FXML
@@ -78,22 +112,42 @@ public class ConnectedPeerController {
             new Alert(Alert.AlertType.INFORMATION, "Hãy chọn 1 file để tải").showAndWait();
             return;
         }
+        downloadFile(sel);
+    }
+
+    private void downloadFile(Row fileRow) {
+        // Hiển thị hộp thoại chọn nơi lưu file
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Chọn nơi lưu file");
+        fileChooser.setInitialFileName(fileRow.name);
+
+        // Thêm bộ lọc file nếu cần (tùy chọn)
+        // FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("All Files", "*.*");
+        // fileChooser.getExtensionFilters().add(extFilter);
+
+        File selectedFile = fileChooser.showSaveDialog(peerNameLabel.getScene().getWindow());
+
+        // Nếu người dùng hủy chọn file, không làm gì cả
+        if (selectedFile == null) {
+            statusLabel.setText("Đã hủy tải xuống");
+            return;
+        }
 
         progress.setProgress(0);
-        statusLabel.setText("Đang tải: " + sel.name);
+        statusLabel.setText("Đang tải: " + fileRow.name);
 
         Task<Boolean> task = new Task<>() {
             @Override
             protected Boolean call() {
-                Path saveTo = Path.of("Downloads").resolve(sel.name);
-                return fileShareService.download(peer, sel.relativePath, saveTo);
+                Path saveTo = selectedFile.toPath();
+                return fileShareService.download(peer, fileRow.relativePath, saveTo);
             }
         };
 
         task.setOnSucceeded(e -> {
             boolean ok = task.getValue();
             progress.setProgress(ok ? 1.0 : 0.0);
-            statusLabel.setText(ok ? "Hoàn tất" : "Lỗi tải");
+            statusLabel.setText(ok ? "Hoàn tất - Đã lưu tại: " + selectedFile.getAbsolutePath() : "Lỗi tải");
         });
         task.setOnFailed(e -> {
             progress.setProgress(0);
@@ -102,6 +156,7 @@ public class ConnectedPeerController {
 
         new Thread(task, "download-remote-file").start();
     }
+
 
     @FXML
     private void onDisconnect() {
@@ -124,5 +179,5 @@ public class ConnectedPeerController {
         public String getRelativePath() { return relativePath; }
         public long getSize() { return size; }
     }
-}
 
+}
