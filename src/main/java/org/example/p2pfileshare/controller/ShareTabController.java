@@ -52,6 +52,18 @@ public class ShareTabController {
         colSharedName.setCellValueFactory(new PropertyValueFactory<>("fileName"));
         colSharedType.setCellValueFactory(new PropertyValueFactory<>("extension"));
         colSharedSize.setCellValueFactory(new PropertyValueFactory<>("size"));
+        // Format hiển thị kích thước: KB/MB/GB
+        colSharedSize.setCellFactory(col -> new TableCell<SharedFileLocal, Long>() {
+            @Override
+            protected void updateItem(Long item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(formatSize(item));
+                }
+            }
+        });
         colSharedSubject.setCellValueFactory(new PropertyValueFactory<>("subject"));
         colSharedTags.setCellValueFactory(new PropertyValueFactory<>("tags"));
         colSharedVisibility.setCellValueFactory(new PropertyValueFactory<>("visible"));
@@ -146,5 +158,19 @@ public class ShareTabController {
         Alert a = new Alert(Alert.AlertType.INFORMATION,
                 "Demo: chưa xoá file thật, chỉ minh hoạ.");
         a.showAndWait();
+    }
+
+    // Helper: đổi bytes -> KB/MB/GB theo ngưỡng
+    private static String formatSize(long bytes) {
+        final double KB = 1024.0;
+        final double MB = KB * 1024.0;
+        final double GB = MB * 1024.0;
+        if (bytes >= GB) {
+            return String.format("%.2f GB", bytes / GB);
+        } else if (bytes >= MB) {
+            return String.format("%.2f MB", bytes / MB);
+        } else {
+            return String.format("%.2f KB", bytes / KB);
+        }
     }
 }

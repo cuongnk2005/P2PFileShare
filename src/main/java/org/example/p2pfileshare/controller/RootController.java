@@ -27,6 +27,7 @@ public class RootController {
 
     @FXML private TabPane mainTabPane;
     @FXML private Label globalStatusLabel;
+    @FXML private Label userNameLabel; // hiển thị tên người dùng trên status bar
 
     // Services
     private PeerService peerService;
@@ -50,12 +51,12 @@ public class RootController {
         // 1) Hỏi tên peer
         myName = loadOrAskPeerName();
         myPeerId = UUID.randomUUID().toString();
-
+        historyService   = new HistoryService();
         // 2) Khởi tạo service
         peerService      = new PeerService(myPeerId, myName, FILE_PORT, CONTROL_PORT);
-        fileShareService = new FileShareService(FILE_PORT);
+        fileShareService = new FileShareService(FILE_PORT, historyService);
         searchService    = new SearchService();
-        historyService   = new HistoryService();
+
 
         // 3) ControlClient để gửi request CONNECT (gửi peerId, displayName)
         controlClient = new ControlClient(myPeerId, myName);
@@ -116,6 +117,10 @@ public class RootController {
             historyTabController.init(historyService, globalStatusLabel);
 
         globalStatusLabel.setText("Sẵn sàng");
+        // Hiển thị tên người dùng lên status bar (nếu Label đã được inject)
+        if (userNameLabel != null && myName != null) {
+            userNameLabel.setText(myName);
+        }
     }
 
     // ================= MENU =================
@@ -138,6 +143,32 @@ public class RootController {
         alert.setHeaderText("P2P File Sharing - JavaFX");
         alert.setContentText("Ứng dụng chia sẻ file ngang hàng trong LAN.");
         alert.showAndWait();
+    }
+
+    @FXML
+    private void onChangeName() {
+        var owner = mainTabPane != null && mainTabPane.getScene() != null ? mainTabPane.getScene().getWindow() : null;
+        var opt = org.example.p2pfileshare.controller.ChangeNameController.showDialog(owner, myName);
+        if (opt.isPresent()) {
+            String newName = opt.get().trim();
+            if (!newName.isEmpty() && !newName.equals(myName)) {
+                // 1) Lưu config
+                AppConfig.save(KEY_PEER_NAME, newName);
+
+                // 2) Cập nhật biến và UI
+                myName = newName;
+                if (userNameLabel != null) userNameLabel.setText(myName);
+
+                // 3) Cập nhật service/client
+                if (peerService != null) peerService.setMyDisplayName(myName);
+                if (controlClient != null) controlClient.setMyDisplayName(myName);
+
+                // 4) Refresh UI (quét lại peer list để cập nhật hiển thị nếu cần)
+                if (peerTabController != null) peerTabController.refresh();
+
+                globalStatusLabel.setText("Đã đổi tên thành: " + myName);
+            }
+        }
     }
 
     // ================= HỖ TRỢ =================

@@ -1,16 +1,37 @@
 package org.example.p2pfileshare.service;
 
+import org.example.p2pfileshare.model.DownloadHistory;
+import org.example.p2pfileshare.util.DownloadHistoryManager;
+
+import java.util.List;
+
 public class HistoryService {
 
-    // TODO: sau này lưu lịch sử vào file JSON/SQLite
+    private final DownloadHistoryManager manager;
 
-    public void addRecord(String fileName, String peer, long sizeBytes) {
-        // demo: chưa lưu thật
-        System.out.println("[History] Tải file " + fileName + " từ " + peer + " (" + sizeBytes + " bytes)");
+    public HistoryService() {
+        this.manager = new DownloadHistoryManager();
     }
 
-    public void clear() {
-        // demo
-        System.out.println("[History] Clear all (demo)");
+    public List<DownloadHistory> listHistories() {
+        return manager.loadHistory();
+    }
+
+    public void clearHistory() {
+        manager.clearHistory();
+    }
+    public void addHistory(DownloadHistory h) {
+        manager.addHistory(h);
+    }
+    public  List<DownloadHistory> loadHistory() {
+        return manager.loadHistory();
+    }
+    // Listener registration forwarded to manager
+    public void addHistoryChangeListener(Runnable listener) {
+        manager.addChangeListener(listener);
+    }
+
+    public void removeHistoryChangeListener(Runnable listener) {
+        manager.removeChangeListener(listener);
     }
 }

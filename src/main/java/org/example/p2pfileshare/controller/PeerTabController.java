@@ -29,7 +29,7 @@ public class PeerTabController {
     @FXML private TableColumn<PeerInfo, String> colPeerName;
     @FXML private TableColumn<PeerInfo, String> colPeerIp;
     @FXML private TableColumn<PeerInfo, Number> colPeerPort;
-    @FXML private TableColumn<PeerInfo, String> colPeerStatus;
+    @FXML private TableColumn<PeerInfo, PeerInfo.ConnectionState> colPeerStatus;
     @FXML private Label peerStatusLabel;
     @FXML private TabPane mainTabPane; // nếu không có trong FXML, có thể set từ RootController
 
@@ -55,7 +55,38 @@ public class PeerTabController {
         colPeerName.setCellValueFactory(new PropertyValueFactory<>("name"));
         colPeerIp.setCellValueFactory(new PropertyValueFactory<>("ip"));
         colPeerPort.setCellValueFactory(new PropertyValueFactory<>("fileServerPort"));
-        colPeerStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
+
+        // Hiển thị trạng thái kết nối thực tế thay vì "Online"
+        colPeerStatus.setCellValueFactory(new PropertyValueFactory<>("connectionState"));
+        colPeerStatus.setCellFactory(column -> new TableCell<PeerInfo, PeerInfo.ConnectionState>() {
+            @Override
+            protected void updateItem(PeerInfo.ConnectionState state, boolean empty) {
+                super.updateItem(state, empty);
+                if (empty || state == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    switch (state) {
+                        case NOT_CONNECTED:
+                            setText("Chưa kết nối");
+                            setStyle("-fx-text-fill: #666666;");
+                            break;
+                        case PENDING:
+                            setText("Đang kết nối...");
+                            setStyle("-fx-text-fill: #ff9800; -fx-font-weight: bold;");
+                            break;
+                        case CONNECTED:
+                            setText("Đã kết nối");
+                            setStyle("-fx-text-fill: #4caf50; -fx-font-weight: bold;");
+                            break;
+                        case REJECTED:
+                            setText("Bị từ chối");
+                            setStyle("-fx-text-fill: #f44336;");
+                            break;
+                    }
+                }
+            }
+        });
 
         peerTable.setItems(peerList);
     }
@@ -98,6 +129,11 @@ public class PeerTabController {
         });
 
         new Thread(task).start();
+    }
+
+    // Public helper để gọi từ RootController khi cần refresh
+    public void refresh() {
+        onScanPeers();
     }
 
 

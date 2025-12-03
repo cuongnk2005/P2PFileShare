@@ -16,6 +16,7 @@
                 <!-- Menu File -->
                 <Menu text="File">
                     <items>
+                        <MenuItem text="Đổi tên..." onAction="#onChangeName" />
                         <MenuItem text="Chọn thư mục chia sẻ..." onAction="#onChooseShareFolder" />
                         <SeparatorMenuItem />
                         <MenuItem text="Thoát" onAction="#onExit" />
@@ -58,6 +59,11 @@
                     <fx:include source="HistoryTab.fxml" fx:id="historyTab" />
                 </Tab>
 
+                <!-- TAB INCOMING CONNECTIONS -->
+                <Tab text="Kết nối đến" closable="false">
+                    <fx:include source="IncomingConnectionTab.fxml" fx:id="incomingConnectionTab" />
+                </Tab>
+
             </tabs>
         </TabPane>
     </center>
@@ -71,6 +77,10 @@
             <children>
                 <Label text="Trạng thái:" />
                 <Label fx:id="globalStatusLabel" text="Sẵn sàng" />
+                <!-- spacer để đẩy tên người dùng sang phải -->
+                <Region HBox.hgrow="ALWAYS" />
+                <Label text="Người dùng:" />
+                <Label fx:id="userNameLabel" text="(chưa đặt)" />
             </children>
         </HBox>
     </bottom>

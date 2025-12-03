@@ -1,0 +1,86 @@
+/* ===== Theme colors ===== */
+* {
+    -primary: #4a90e2;
+    -primary-dark: #2f6fb8;
+    -border: #e0e0e0;
+    -text: #333333;
+    -muted: #666666;
+    -bg: #ffffff;
+    -bg-soft: #f7f7f7;
+}
+
+/* ===== Root background gradient ===== */
+.root {
+    -fx-background-color: linear-gradient(to bottom, -bg, -bg-soft);
+}
+
+/* ===== Container: VBox ===== */
+.vbox {
+    -fx-background-color: -bg;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: -border;
+    -fx-padding: 16 16 16 16;
+    -fx-spacing: 12;
+    -fx-effect: dropshadow( gaussian , rgba(0,0,0,0.08) , 12, 0.2 , 0 , 2 );
+}
+
+/* ===== Header text ===== */
+.label {
+    -fx-text-fill: -text;
+}
+
+/* Tiêu đề lớn */
+.label[style*="font-size:16px"] {
+    -fx-text-fill: -text;
+}
+
+/* Mô tả nhạt */
+.label[style*="#666"] {
+    -fx-text-fill: -muted;
+}
+
+/* ===== TextField ===== */
+.text-field {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 8;
+    -fx-border-color: -border;
+    -fx-border-radius: 8;
+    -fx-padding: 10 12 10 12;
+    -fx-font-size: 13px;
+}
+.text-field:focused {
+    -fx-border-color: -primary;
+    -fx-effect: dropshadow( gaussian , rgba(74,144,226,0.25) , 8, 0.3 , 0 , 0 );
+}
+
+/* ===== Footer HBox ===== */
+.hbox {
+    -fx-padding: 6 0 0 0;
+}
+
+/* ===== Buttons ===== */
+.button {
+    -fx-background-radius: 8;
+    -fx-padding: 8 16 8 16;
+    -fx-background-color: #f0f0f0;
+    -fx-text-fill: -text;
+    -fx-border-color: transparent;
+}
+.button:hover {
+    -fx-background-color: #e8e8e8;
+}
+
+/* Nút mặc định (Lưu) */
+.button:default {
+    -fx-background-color: -primary;
+    -fx-text-fill: white;
+}
+.button:default:hover {
+    -fx-background-color: -primary-dark;
+}
+
+/* ===== ImageView spacing tweak ===== */
+.image-view {
+    -fx-opacity: 0.95;
+}

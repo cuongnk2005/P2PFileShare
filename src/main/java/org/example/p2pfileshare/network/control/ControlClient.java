@@ -16,10 +16,14 @@ import java.util.List;
 public class ControlClient {
 
     private final String myPeerId;
-    private final String myDisplayName;
+    private String myDisplayName;
 
     public ControlClient(String myPeerId, String myDisplayName) {
         this.myPeerId = myPeerId;
+        this.myDisplayName = myDisplayName;
+    }
+
+    public void setMyDisplayName(String myDisplayName) {
         this.myDisplayName = myDisplayName;
     }
 

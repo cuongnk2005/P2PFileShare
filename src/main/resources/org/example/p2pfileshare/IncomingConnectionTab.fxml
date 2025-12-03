@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.example.p2pfileshare.controller.IncomingConnectionController"
+      spacing="10">
+
+    <padding>
+        <Insets top="10" right="10" bottom="10" left="10" />
+    </padding>
+
+    <children>
+        <!-- Header -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Các peer đang kết nối đến bạn" style="-fx-font-size: 14px; -fx-font-weight: bold;" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Button text="🔄 Làm mới" />
+        </HBox>
+
+        <!-- Table hiển thị danh sách peer đang kết nối -->
+        <TableView fx:id="connectedPeerTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="colPeerId" text="Peer ID" prefWidth="200" />
+                <TableColumn fx:id="colDisplayName" text="Tên hiển thị" prefWidth="150" />
+                <TableColumn fx:id="colIp" text="IP" prefWidth="120" />
+                <TableColumn fx:id="colConnectTime" text="Thời gian kết nối" prefWidth="150" />
+            </columns>
+            <placeholder>
+                <Label text="Chưa có peer nào kết nối đến bạn" />
+            </placeholder>
+        </TableView>
+
+        <!-- Status -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Trạng thái:" />
+            <Label fx:id="statusLabel" text="Sẵn sàng" />
+        </HBox>
+
+        <!-- Actions -->
+        <HBox spacing="8" alignment="CENTER_RIGHT">
+            <Button text="Ngắt kết nối" />
+        </HBox>
+    </children>
+
+</VBox>
+

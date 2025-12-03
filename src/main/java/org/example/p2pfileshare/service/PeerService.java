@@ -9,7 +9,7 @@ import java.util.List;
 public class PeerService {
 
     private final String myPeerId;
-    private final String myDisplayName;
+    private String myDisplayName; // cho phép thay đổi runtime
     private final int fileServerPort;
     private final int controlPort;
 
@@ -64,7 +64,7 @@ public class PeerService {
         return discoveredPeers;
     }
 
-    // ================= GETTER =================
+    // ================= GETTER/SETTER =================
 
     public String getMyPeerId() {
         return myPeerId;
@@ -72,6 +72,10 @@ public class PeerService {
 
     public String getMyDisplayName() {
         return myDisplayName;
+    }
+
+    public void setMyDisplayName(String myDisplayName) {
+        this.myDisplayName = myDisplayName;
     }
 
     public int getFileServerPort() {

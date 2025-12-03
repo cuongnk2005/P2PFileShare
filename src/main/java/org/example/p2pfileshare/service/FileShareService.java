@@ -1,12 +1,15 @@
 package org.example.p2pfileshare.service;
 
+import org.example.p2pfileshare.model.DownloadHistory;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.model.SharedFileLocal;
 import org.example.p2pfileshare.network.transfer.FileClient;
 import org.example.p2pfileshare.network.transfer.FileServer;
+import org.example.p2pfileshare.util.DownloadHistoryManager;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,9 +18,10 @@ public class FileShareService {
     private final int fileServerPort;    // cổng cho FileServer
     private File shareFolder;            // thư mục đang chia sẻ, client gửi den
     private FileServer fileServer;       // server gửi file cho peer khác
-
-    public FileShareService(int fileServerPort) {
+    private HistoryService historyService;
+    public FileShareService(int fileServerPort,HistoryService historyService ) {
         this.fileServerPort = fileServerPort;
+        this.historyService = historyService;
     }
 
     // ======================
@@ -66,12 +70,39 @@ public class FileShareService {
     //        TẢI FILE TỪ PEER
     // ==============================
     public boolean download(PeerInfo peer, String relativePath, Path saveTo) {
-        return FileClient.downloadFile(
+        boolean success = FileClient.downloadFile(
                 peer.getIp(),
                 peer.getFileServerPort(),
                 relativePath,
                 saveTo
         );
+        System.out.println("trạng thái success: " + success);
+
+        if (success) {
+            try {
+                // Lưu lịch sử tải xuống
+                DownloadHistory history = new DownloadHistory(
+                        saveTo.getFileName().toString(),
+                        saveTo.toAbsolutePath().toString(),
+                        peer.getName(),
+                        peer.getIp(),
+                        LocalDateTime.now()
+                );
+                historyService.addHistory(history);
+                System.out.println("✓ Đã lưu lịch sử tải xuống: " + saveTo.getFileName());
+            } catch (Exception e) {
+                System.err.println("✗ Lỗi khi lưu lịch sử tải xuống:");
+                e.printStackTrace();
+                // Không ảnh hưởng đến kết quả download
+            }
+        }
+
+        return success;
+    }
+
+    // ======= NEW: expose download history to UI =========
+    public List<DownloadHistory> listDownloadHistory() {
+        return historyService.loadHistory();
     }
 
     // ==============================

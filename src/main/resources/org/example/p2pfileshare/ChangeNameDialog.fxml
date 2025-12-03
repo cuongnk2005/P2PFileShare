@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.example.p2pfileshare.controller.ChangeNameController"
+      spacing="10" alignment="CENTER_LEFT" stylesheets="/org/example/p2pfileshare/dialog.css">
+
+    <children>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <children>
+                <ImageView fitWidth="48" fitHeight="48" pickOnBounds="true" preserveRatio="true">
+                    <!-- optional icon; can be left empty so JavaFX uses default -->
+                </ImageView>
+                <VBox spacing="4">
+                    <Label text="Đổi tên Peer" style="-fx-font-size:16px; -fx-font-weight: bold;" />
+                    <Label text="Nhập tên hiển thị sẽ hiển thị cho các peer khác:" style="-fx-font-size:11px; -fx-text-fill:#666;" />
+                </VBox>
+            </children>
+        </HBox>
+
+        <TextField fx:id="nameField" promptText="Tên hiển thị" HBox.hgrow="ALWAYS" />
+
+        <HBox spacing="8" alignment="CENTER_RIGHT">
+            <children>
+                <Button text="Hủy" onAction="#onCancel" />
+                <Button text="Lưu" onAction="#onSave" defaultButton="true" />
+            </children>
+        </HBox>
+    </children>
+    <padding>
+        <Insets top="12" right="12" bottom="12" left="12" />
+    </padding>
+</VBox>
