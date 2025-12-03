@@ -1,5 +1,6 @@
 package org.example.p2pfileshare.network.control;
 
+import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.service.FileShareService;
 
 import java.io.*;
@@ -35,6 +36,7 @@ public class ControlServer {
     public ControlServer(int port, Function<String, Boolean> onIncomingConnect) {
         this.port = port;
         this.onIncomingConnect = onIncomingConnect;
+
     }
 
     // Cho phép inject FileShareService để phục vụ LIST_FILES
@@ -78,8 +80,8 @@ public class ControlServer {
             try (Socket s = socket;
                  BufferedReader reader = new BufferedReader(
                          new InputStreamReader(s.getInputStream()))
-            ;     PrintWriter writer = new PrintWriter(
-                         new OutputStreamWriter(s.getOutputStream()), true)) {
+                 ;     PrintWriter writer = new PrintWriter(
+                    new OutputStreamWriter(s.getOutputStream()), true)) {
 
                 String raw = reader.readLine();
                 if (raw == null || raw.isEmpty()) return;
@@ -178,5 +180,11 @@ public class ControlServer {
     private String safe(String s) {
         if (s == null) return "";
         return s.replace("\t", " ").replace("\n", " ");
+    }
+    public List<PeerInfo> getAcceptedPeers(List<PeerInfo> allPeers) {
+        // Trả về danh sách peerId đã được chấp nhận kết nối
+        return allPeers.stream()
+                .filter(p -> acceptedPeers.contains(p.getPeerId()))
+                .toList();
     }
 }

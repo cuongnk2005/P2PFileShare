@@ -44,7 +44,9 @@ public class PeerService {
         }
         return null;
     }
-
+    public List<PeerInfo> getListPeer(){
+        return discoveredPeers;
+    }
     /**
      * Tìm PeerInfo từ peerId (UUID) — khuyến nghị sử dụng.
      */
@@ -56,6 +58,9 @@ public class PeerService {
         }
         return null;
     }
+//    public List<PeerInfo> getAcceptedPeer() {
+//        return
+//    }
 
     /**
      * Lấy danh sách tất cả peers đã quét.
