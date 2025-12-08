@@ -17,7 +17,7 @@
         <HBox spacing="10" alignment="CENTER_LEFT">
             <Label text="Các peer đang kết nối đến bạn" style="-fx-font-size: 14px; -fx-font-weight: bold;" />
             <Region HBox.hgrow="ALWAYS" />
-            <Button text="🔄 Làm mới" />
+            <Button fx:id="refreshButton" text="🔄 Làm mới" onAction="#onRefresh" />
         </HBox>
 
         <!-- Table hiển thị danh sách peer đang kết nối -->
@@ -41,7 +41,7 @@
 
         <!-- Actions -->
         <HBox spacing="8" alignment="CENTER_RIGHT">
-            <Button text="Ngắt kết nối" />
+            <Button fx:id="disconnectButton" text="Ngắt kết nối" onAction="#onDisconnect" />
         </HBox>
     </children>
 

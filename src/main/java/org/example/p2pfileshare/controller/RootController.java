@@ -24,6 +24,7 @@ public class RootController {
     @FXML private ShareTabController shareTabController;
     @FXML private SearchTabController searchTabController;
     @FXML private HistoryTabController historyTabController;
+    @FXML private IncomingConnectionController incomingConnectionTabController;
 
     @FXML private TabPane mainTabPane;
     @FXML private Label globalStatusLabel;
@@ -115,6 +116,9 @@ public class RootController {
 
         if (historyTabController != null)
             historyTabController.init(historyService, globalStatusLabel);
+
+        if (incomingConnectionTabController != null)
+            incomingConnectionTabController.init(peerService, controlServer, globalStatusLabel);
 
         globalStatusLabel.setText("Sẵn sàng");
         // Hiển thị tên người dùng lên status bar (nếu Label đã được inject)
