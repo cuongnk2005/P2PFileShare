@@ -28,10 +28,11 @@ public class IncomingConnectionController {
     private PeerService peerService;
     private ControlServer controlServer;
     private Label globalStatusLabel;
-
+    private String myUID;
     private final ObservableList<PeerInfo> incomingPeerList = FXCollections.observableArrayList();
 
-    public void init(PeerService peerService, ControlServer controlServer, Label globalStatusLabel) {
+    public void init(PeerService peerService, ControlServer controlServer, Label globalStatusLabel, String myUID) {
+        this.myUID = myUID;
         this.peerService = peerService;
         this.controlServer = controlServer;
         this.globalStatusLabel = globalStatusLabel;
@@ -117,9 +118,23 @@ public class IncomingConnectionController {
 
         var result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
-            // TODO: Implement disconnect logic
-            incomingPeerList.remove(selected);
-            statusLabel.setText("Đã ngắt kết nối với " + selected.getName());
+            // Remove the peer's access to shared files
+            boolean success = controlServer.disconnectPeer(selected, this.myUID);
+
+            if (success) {
+                // Remove the peer from the UI list
+                incomingPeerList.remove(selected);
+
+                // Update the status label
+                statusLabel.setText("Đã ngắt kết nối với " + selected.getName());
+            } else {
+                // Notify the user if the disconnection failed
+                Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                errorAlert.setTitle("Lỗi");
+                errorAlert.setHeaderText("Không thể ngắt kết nối");
+                errorAlert.setContentText("Đã xảy ra lỗi khi ngắt kết nối với " + selected.getName());
+                errorAlert.showAndWait();
+            }
         }
     }
 }

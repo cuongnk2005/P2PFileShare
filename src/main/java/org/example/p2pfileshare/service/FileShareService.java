@@ -19,6 +19,8 @@ public class FileShareService {
     private File shareFolder;            // thư mục đang chia sẻ, client gửi den
     private FileServer fileServer;       // server gửi file cho peer khác
     private HistoryService historyService;
+    private String myDisplayName; // Tên hiển thị của peer
+
     public FileShareService(int fileServerPort,HistoryService historyService ) {
         this.fileServerPort = fileServerPort;
         this.historyService = historyService;
@@ -174,5 +176,13 @@ public class FileShareService {
         File parent = f.getParentFile();
         if (parent != null) return parent.getName() + " " + f.getName();
         return f.getName();
+    }
+
+    public void setMyDisplayName(String myDisplayName) {
+        this.myDisplayName = myDisplayName;
+    }
+
+    public String getMyDisplayName() {
+        return myDisplayName;
     }
 }

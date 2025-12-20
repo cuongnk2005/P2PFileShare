@@ -56,6 +56,7 @@ public class RootController {
         // 2) Khởi tạo service
         peerService      = new PeerService(myPeerId, myName, FILE_PORT, CONTROL_PORT);
         fileShareService = new FileShareService(FILE_PORT, historyService);
+        fileShareService.setMyDisplayName(myName); // Truyền tên hiển thị vào FileShareService
         searchService    = new SearchService();
 
 
@@ -93,6 +94,27 @@ public class RootController {
         controlServer.setFileShareService(fileShareService);
         controlServer.start();
 
+        // NEW: khi ControlServer nhận DISCONNECT_NOTIFY từ remote, hiển thị Alert cho người dùng
+        controlServer.setOnDisconnectNotify(msg -> {
+            Platform.runLater(() -> {
+                System.out.println("DISCONNECT_NOTIFY from=" + msg.fromPeer + " to=" + msg.toPeer);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Ngắt kết nối");
+                alert.setHeaderText("Bạn đã bị ngắt kết nối");
+                String content = (msg.note != null && !msg.note.isBlank())
+                        ? msg.note
+                        : ("Bạn đã bị ngắt kết nối bởi " + (msg.fromPeer != null ? msg.fromPeer : "Unknown"));
+                alert.setContentText(content);
+                alert.showAndWait();
+                // Cập nhật global status nếu cần
+                if (globalStatusLabel != null) {
+                    globalStatusLabel.setText("Bạn đã bị ngắt kết nối: " + (msg.fromPeer != null ? msg.fromPeer : "Unknown"));
+                }
+                this.peerTabController.onRemotePeerDisconnected(msg.fromPeer);
+
+            });
+        });
+
         System.out.println("[Root] ControlServer started at port " + CONTROL_PORT);
 
         // 5) Bật Discovery Responder
@@ -118,7 +140,7 @@ public class RootController {
             historyTabController.init(historyService, globalStatusLabel);
 
         if (incomingConnectionTabController != null)
-            incomingConnectionTabController.init(peerService, controlServer, globalStatusLabel);
+            incomingConnectionTabController.init(peerService, controlServer, globalStatusLabel,this.myPeerId);
 
         globalStatusLabel.setText("Sẵn sàng");
         // Hiển thị tên người dùng lên status bar (nếu Label đã được inject)

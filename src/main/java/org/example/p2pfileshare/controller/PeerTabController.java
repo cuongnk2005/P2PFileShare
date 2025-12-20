@@ -1,5 +1,6 @@
 package org.example.p2pfileshare.controller;
 
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -17,6 +18,8 @@ import org.example.p2pfileshare.service.PeerService;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class PeerTabController {
 
@@ -24,7 +27,7 @@ public class PeerTabController {
     private FileShareService fileShareService;
     private ControlClient controlClient;
     private Label globalStatusLabel;
-
+    private ConnectedPeerController connectedPeerController;
     @FXML private TableView<PeerInfo> peerTable;
     @FXML private TableColumn<PeerInfo, String> colPeerName;
     @FXML private TableColumn<PeerInfo, String> colPeerIp;
@@ -105,7 +108,15 @@ public class PeerTabController {
     // ===================================
     @FXML
     private void onScanPeers() {
-        peerList.clear();
+
+        // snapshot trạng thái TRƯỚC KHI clear
+        Map<String, PeerInfo.ConnectionState> prevStates = peerList.stream()
+                .collect(Collectors.toMap(
+                        PeerInfo::getPeerId,
+                        PeerInfo::getConnectionState,
+                        (a,b) -> a
+                ));
+
         peerStatusLabel.setText("Đang quét...");
         peerTable.setDisable(true);
 
@@ -117,9 +128,21 @@ public class PeerTabController {
         };
 
         task.setOnSucceeded(e -> {
-            peerList.setAll(task.getValue());
-            peerStatusLabel.setText("Đã tìm thấy " + task.getValue().size() + " peer");
-            globalStatusLabel.setText("Quét LAN xong");
+            List<PeerInfo> scanned = task.getValue();
+
+            // gán lại state
+            for (PeerInfo p : scanned) {
+                PeerInfo.ConnectionState prev = prevStates.get(p.getPeerId());
+                if (prev == PeerInfo.ConnectionState.CONNECTED) {
+                    p.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
+                } else {
+                    p.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
+                }
+            }
+
+            peerList.setAll(scanned);
+            peerStatusLabel.setText("Đã tìm thấy " + scanned.size() + " peer");
+            if (globalStatusLabel != null) globalStatusLabel.setText("Quét LAN xong");
             peerTable.setDisable(false);
         });
 
@@ -181,8 +204,8 @@ public class PeerTabController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConnectedPeerTab.fxml"));
             AnchorPane content = loader.load();
 
-            ConnectedPeerController controller = loader.getController();
-            controller.init(peer, controlClient, fileShareService);
+            connectedPeerController = loader.getController();
+            connectedPeerController.init(peer, controlClient, fileShareService);
 
             Tab tab = new Tab("Kết nối: " + peer.getName());
             tab.setContent(content);
@@ -274,5 +297,36 @@ public class PeerTabController {
 
     private void show(String msg) {
         new Alert(Alert.AlertType.INFORMATION, msg).showAndWait();
+    }
+
+    // PUBLIC API: gọi khi remote peer bị ngắt (hoặc khi muốn đặt trạng thái peer về "chưa kết nối")
+    public void onRemotePeerDisconnected(String peerId) {
+        if (peerId == null || peerId.isBlank()) return;
+
+        // Cập nhật trên JavaFX thread để tránh lỗi đa luồng
+        Platform.runLater(() -> {
+            this.connectedPeerController.onReload();
+            System.out.println("Peer tab controoler co chay");
+            boolean updated = false;
+            for (PeerInfo p : peerList) {
+                if (peerId.equals(p.getPeerId())) {
+                    System.out.println("đang tien hanh doi trang thai");
+
+                    p.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
+                    updated = true;
+                    // cập nhật label trạng thái nếu cần
+                    if (peerStatusLabel != null) {
+                        peerStatusLabel.setText("Peer " + p.getName() + " đã bị ngắt kết nối");
+                    }
+                    break;
+                }
+            }
+            // Nếu không tìm thấy trong danh sách hiện tại, có thể refresh toàn bộ danh sách
+            if (!updated) {
+                // Optional: reload toàn bộ peers từ service nếu muốn đồng bộ
+                // refresh();
+            }
+            if (peerTable != null) peerTable.refresh();
+        });
     }
 }

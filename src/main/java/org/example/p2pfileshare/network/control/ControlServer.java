@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Consumer;
 
 /**
  * Lắng nghe các yêu cầu điều khiển:
@@ -33,6 +34,10 @@ public class ControlServer {
     // Để trả danh sách file local
     private FileShareService fileShareService;
     private Runnable onPeerAccepted;
+
+    // NEW: callback khi nhận DISCONNECT_NOTIFY từ remote (peer bị báo)
+    private Consumer<ControlProtocol.ParsedMessage> onDisconnectNotify;
+
     public ControlServer(int port, Function<String, Boolean> onIncomingConnect) {
         this.port = port;
         this.onIncomingConnect = onIncomingConnect;
@@ -162,6 +167,21 @@ public class ControlServer {
                             msg.toPeer, msg.fromPeer, "Disconnected"));
                     System.out.println("[ControlServer] Disconnected: " + fromPeer);
                 }
+                // NEW: xử lý thông báo DISCONNECT_NOTIFY nhận từ remote
+                else if (ControlProtocol.DISCONNECT_NOTIFY.equals(msg.command)) {
+                    System.out.println("[ControlServer] Received DISCONNECT_NOTIFY from " + msg.fromPeer
+                            + " note=" + msg.note);
+                    // Gọi callback nếu đã đăng ký để UI xử lý (ví dụ hiện Alert)
+                    if (onDisconnectNotify != null) {
+                        try {
+                            onDisconnectNotify.accept(msg);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                    // không cần gửi phản hồi
+                    return;
+                }
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -200,21 +220,27 @@ public class ControlServer {
     public void setOnPeerAccepted(Runnable callback) {
         this.onPeerAccepted = callback;
     }
-    public boolean disconnectPeer(PeerInfo peer) {
+
+    // NEW: setter để UI đăng ký listener khi nhận DISCONNECT_NOTIFY
+    public void setOnDisconnectNotify(Consumer<ControlProtocol.ParsedMessage> callback) {
+        this.onDisconnectNotify = callback;
+    }
+
+    public boolean disconnectPeer(PeerInfo peer, String myUID) {
         if (peer == null) return false;
 
-        // 1) Xoá khỏi accepted set để chặn LIST_FILES ngay lập tức
+        // 1) Remove the peer from the accepted set to block further file access
         acceptedPeers.remove(peer.getPeerId());
 
-        // 2) Gửi notify sang peer đó qua TCP controlPort
+        // 2) Notify the peer about the disconnection
         try (Socket s = new Socket(peer.getIp(), peer.getControlPort());
              PrintWriter w = new PrintWriter(new OutputStreamWriter(s.getOutputStream()), true)) {
 
             String msg = ControlProtocol.build(
                     ControlProtocol.DISCONNECT_NOTIFY,
-                    "SERVER",                 // from (mình).
-                    peer.getPeerId(),         // to
-                    "Bạn đã bị ngắt kết nối"
+                    myUID,                 // from (server)
+                    peer.getPeerId(),         // to (disconnected peer)
+                    "Bạn đã bị peer '" + fileShareService.getMyDisplayName() + "' ngắt kết nối"
             );
 
             w.println(msg);
@@ -222,7 +248,7 @@ public class ControlServer {
             return true;
 
         } catch (IOException e) {
-            // Dù gửi fail thì cũng đã remove accept -> vẫn chặn được
+            // Even if the notification fails, the peer is still removed from the accepted list
             System.out.println("[ControlServer] Notify failed: " + e.getMessage());
             return false;
         }

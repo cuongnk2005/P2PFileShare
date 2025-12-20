@@ -93,7 +93,7 @@ public class ConnectedPeerController {
     }
 
     @FXML
-    private void onReload() {
+    public void onReload() {
         reload();
     }
 

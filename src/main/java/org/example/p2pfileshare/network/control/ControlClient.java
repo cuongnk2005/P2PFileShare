@@ -1,5 +1,7 @@
 package org.example.p2pfileshare.network.control;
 
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
 import org.example.p2pfileshare.model.PeerInfo;
 
 import java.io.*;
@@ -102,7 +104,7 @@ public class ControlClient {
     }
 
     /**
-     * Lấy danh sách file chia sẻ từ peer đích qua kênh điều khiển (đơn giản)
+     * Lấy danh sách file chia sẻ từ peer đích qua kênh điều khiển
      */
     public List<RemoteFile> listFiles(PeerInfo peer) {
         return listFiles(peer.getIp(), peer.getControlPort(), peer.getPeerId());
@@ -188,5 +190,16 @@ public class ControlClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void handleDisconnectNotify(ControlProtocol.ParsedMessage msg) {
+        String disconnectorName = msg.note != null ? msg.note : "Unknown";
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Ngắt kết nối");
+            alert.setHeaderText("Bạn đã bị ngắt kết nối");
+            alert.setContentText(disconnectorName);
+            alert.showAndWait();
+        });
     }
 }
