@@ -32,7 +32,7 @@ public class ControlServer {
 
     // Để trả danh sách file local
     private FileShareService fileShareService;
-
+    private Runnable onPeerAccepted;
     public ControlServer(int port, Function<String, Boolean> onIncomingConnect) {
         this.port = port;
         this.onIncomingConnect = onIncomingConnect;
@@ -101,6 +101,9 @@ public class ControlServer {
                             accept = Boolean.TRUE.equals(onIncomingConnect.apply(fromPeer));
                             if (accept) {
                                 acceptedPeers.add(fromPeer);
+                                if (onPeerAccepted != null) {
+                                    onPeerAccepted.run();
+                                }
                             }
                         } catch (Exception ex) {
                             ex.printStackTrace();
@@ -151,6 +154,13 @@ public class ControlServer {
 
                     writer.println(resp);
                     System.out.println("[ControlServer] Sent LIST_FILES_RESPONSE (" + payload.length() + " bytes)");
+                }else if (ControlProtocol.DISCONNECT_REQUEST.equals(msg.command)) {
+                    String fromPeer = msg.fromPeer; // người yêu cầu ngắt (mình) hoặc client
+                    String toPeer   = msg.toPeer;   // người bị ngắt
+                    acceptedPeers.remove(fromPeer); //remove(toPeer)
+                    writer.println(ControlProtocol.build(ControlProtocol.DISCONNECT_NOTIFY,
+                            msg.toPeer, msg.fromPeer, "Disconnected"));
+                    System.out.println("[ControlServer] Disconnected: " + fromPeer);
                 }
 
             } catch (IOException e) {
@@ -187,4 +197,35 @@ public class ControlServer {
                 .filter(p -> acceptedPeers.contains(p.getPeerId()))
                 .toList();
     }
+    public void setOnPeerAccepted(Runnable callback) {
+        this.onPeerAccepted = callback;
+    }
+    public boolean disconnectPeer(PeerInfo peer) {
+        if (peer == null) return false;
+
+        // 1) Xoá khỏi accepted set để chặn LIST_FILES ngay lập tức
+        acceptedPeers.remove(peer.getPeerId());
+
+        // 2) Gửi notify sang peer đó qua TCP controlPort
+        try (Socket s = new Socket(peer.getIp(), peer.getControlPort());
+             PrintWriter w = new PrintWriter(new OutputStreamWriter(s.getOutputStream()), true)) {
+
+            String msg = ControlProtocol.build(
+                    ControlProtocol.DISCONNECT_NOTIFY,
+                    "SERVER",                 // from (mình).
+                    peer.getPeerId(),         // to
+                    "Bạn đã bị ngắt kết nối"
+            );
+
+            w.println(msg);
+            System.out.println("[ControlServer] Sent DISCONNECT_NOTIFY to " + peer.getIp());
+            return true;
+
+        } catch (IOException e) {
+            // Dù gửi fail thì cũng đã remove accept -> vẫn chặn được
+            System.out.println("[ControlServer] Notify failed: " + e.getMessage());
+            return false;
+        }
+    }
+
 }

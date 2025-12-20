@@ -1,5 +1,6 @@
 package org.example.p2pfileshare.controller;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -37,21 +38,27 @@ public class IncomingConnectionController {
 
         setupTable();
         loadIncomingConnections();
+        // Đăng ký listener để tự động reload khi có peer mới được chấp nhận
+        controlServer.setOnPeerAccepted(() -> {
+            System.out.println("[IncomingConnection] Peer accepted → reload table");
+
+            Platform.runLater(this::loadIncomingConnections);
+        });
     }
 
     private void setupTable() {
-        // Setup các cột
         colPeerId.setCellValueFactory(data ->
-            new SimpleStringProperty(data.getValue().getPeerId()));
+                new SimpleStringProperty(data.getValue().getPeerId()));
 
         colDisplayName.setCellValueFactory(data ->
-            new SimpleStringProperty(data.getValue().getName()));
+                new SimpleStringProperty(data.getValue().getName()));
 
         colIp.setCellValueFactory(data ->
-            new SimpleStringProperty(data.getValue().getIp()));
+                new SimpleStringProperty(data.getValue().getIp()));
 
+        // Hiện thời gian tải (hoặc thay bằng trường thời gian của PeerInfo nếu có)
         colConnectTime.setCellValueFactory(data ->
-            new SimpleStringProperty(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy"))));
+                new SimpleStringProperty(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy"))));
 
         connectedPeerTable.setItems(incomingPeerList);
     }
@@ -59,16 +66,30 @@ public class IncomingConnectionController {
     private void loadIncomingConnections() {
         // Lấy tất cả peers đã được phát hiện
         List<PeerInfo> allPeers = peerService.getListPeer();
+        // Debug: in ra thông tin để kiểm tra
+        System.out.println("[IncomingConnection] allPeers size = " + (allPeers == null ? 0 : allPeers.size()));
+        if (allPeers != null) {
+            allPeers.forEach(p -> System.out.println("[IncomingConnection] discovered peer: " + p.getPeerId() + " / " + p.getName() + " / " + p.getIp()));
+        }
 
         // Lọc ra những peer đã được chấp nhận kết nối
         List<PeerInfo> acceptedPeers = controlServer.getAcceptedPeers(allPeers);
 
-        incomingPeerList.setAll(acceptedPeers);
-        statusLabel.setText("Có " + acceptedPeers.size() + " peer đang kết nối đến");
-
-        if (globalStatusLabel != null) {
-            globalStatusLabel.setText("Đã tải danh sách peer kết nối đến");
+        // Debug: in accepted
+        System.out.println("[IncomingConnection] acceptedPeers size = " + (acceptedPeers == null ? 0 : acceptedPeers.size()));
+        if (acceptedPeers != null) {
+            acceptedPeers.forEach(p -> System.out.println("[IncomingConnection] accepted peer: " + p.getPeerId() + " / " + p.getName() + " / " + p.getIp()));
         }
+
+        // Cập nhật UI trên JavaFX thread để chắc chắn TableView được refresh
+        Platform.runLater(() -> {
+            incomingPeerList.setAll(acceptedPeers);
+            statusLabel.setText("Có " + (acceptedPeers == null ? 0 : acceptedPeers.size()) + " peer đang kết nối đến");
+
+            if (globalStatusLabel != null) {
+                globalStatusLabel.setText("Đã tải danh sách peer kết nối đến");
+            }
+        });
     }
 
     @FXML

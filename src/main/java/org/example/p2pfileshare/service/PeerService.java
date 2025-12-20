@@ -21,6 +21,7 @@ public class PeerService {
         this.myDisplayName = myDisplayName;
         this.fileServerPort = fileServerPort;
         this.controlPort = controlPort;
+
     }
 
     /**
@@ -44,7 +45,8 @@ public class PeerService {
         }
         return null;
     }
-    public List<PeerInfo> getListPeer(){
+    public List<PeerInfo> getListPeer() {
+        if (discoveredPeers.isEmpty()) scanPeers();
         return discoveredPeers;
     }
     /**
