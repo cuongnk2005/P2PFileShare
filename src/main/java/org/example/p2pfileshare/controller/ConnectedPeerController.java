@@ -97,7 +97,8 @@ public class ConnectedPeerController {
         reload();
     }
 
-    private void reload() {
+    // thay đổi: public để có thể gọi reload từ bên ngoài (PeerTabController)
+    public void reload() {
         statusLabel.setText("Đang tải danh sách...");
         Task<List<ControlClient.RemoteFile>> task = new Task<>() {
             @Override
@@ -116,6 +117,15 @@ public class ConnectedPeerController {
         task.setOnFailed(e -> statusLabel.setText("Lỗi tải danh sách"));
 
         new Thread(task, "reload-remote-files").start();
+    }
+
+    // mới: gọi khi peer remote bị server ngắt kết nối để cập nhật UI tab
+    public void onPeerDisconnected() {
+        // chạy trên JavaFX thread nếu gọi từ background
+        statusLabel.setText("Peer đã bị ngắt kết nối");
+        progress.setProgress(0);
+        // Có thể disable các control nếu muốn
+        fileTable.setDisable(true);
     }
 
     @FXML

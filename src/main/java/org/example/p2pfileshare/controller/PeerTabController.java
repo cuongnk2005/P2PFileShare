@@ -17,6 +17,7 @@ import org.example.p2pfileshare.service.PeerService;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,7 +28,10 @@ public class PeerTabController {
     private FileShareService fileShareService;
     private ControlClient controlClient;
     private Label globalStatusLabel;
-    private ConnectedPeerController connectedPeerController;
+
+    // map lưu nhiều controller, key = peerId
+    private final Map<String, ConnectedPeerController> connectedControllers = new HashMap<>();
+
     @FXML private TableView<PeerInfo> peerTable;
     @FXML private TableColumn<PeerInfo, String> colPeerName;
     @FXML private TableColumn<PeerInfo, String> colPeerIp;
@@ -204,17 +208,22 @@ public class PeerTabController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConnectedPeerTab.fxml"));
             AnchorPane content = loader.load();
 
-            connectedPeerController = loader.getController();
-            connectedPeerController.init(peer, controlClient, fileShareService);
+            ConnectedPeerController controller = loader.getController();
+            controller.init(peer, controlClient, fileShareService);
 
             Tab tab = new Tab("Kết nối: " + peer.getName());
             tab.setContent(content);
             tab.setClosable(true);
 
+            // đăng ký controller theo peerId để có thể cập nhật sau này
+            connectedControllers.put(peer.getPeerId(), controller);
+
+            // khi tab đóng thì xoá mapping
+            tab.setOnClosed(ev -> connectedControllers.remove(peer.getPeerId()));
+
             // tìm TabPane từ một control trong scene
             TabPane tabPane = mainTabPane;
             if (tabPane == null) {
-                // fallback: tìm TabPane cha của bảng
                 Node n = peerTable;
                 while (n != null && !(n instanceof TabPane)) {
                     n = n.getParent();
@@ -305,27 +314,32 @@ public class PeerTabController {
 
         // Cập nhật trên JavaFX thread để tránh lỗi đa luồng
         Platform.runLater(() -> {
-            this.connectedPeerController.onReload();
-            System.out.println("Peer tab controoler co chay");
             boolean updated = false;
+
+            // 1) cập nhật trạng thái trong peer list
             for (PeerInfo p : peerList) {
                 if (peerId.equals(p.getPeerId())) {
-                    System.out.println("đang tien hanh doi trang thai");
-
                     p.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
                     updated = true;
-                    // cập nhật label trạng thái nếu cần
                     if (peerStatusLabel != null) {
                         peerStatusLabel.setText("Peer " + p.getName() + " đã bị ngắt kết nối");
                     }
                     break;
                 }
             }
-            // Nếu không tìm thấy trong danh sách hiện tại, có thể refresh toàn bộ danh sách
+
+            // 2) tìm controller của tab tương ứng và gọi method để cập nhật UI tab nếu tab đang mở
+            ConnectedPeerController ctrl = connectedControllers.get(peerId);
+            if (ctrl != null) {
+                ctrl.onPeerDisconnected();
+            }
+
+            // Nếu không tìm thấy controller, không sao — peerList đã được cập nhật
             if (!updated) {
                 // Optional: reload toàn bộ peers từ service nếu muốn đồng bộ
                 // refresh();
             }
+
             if (peerTable != null) peerTable.refresh();
         });
     }
