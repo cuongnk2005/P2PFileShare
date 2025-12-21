@@ -36,23 +36,23 @@
         </TableView>
     </center>
 
-    <bottom>
-        <VBox spacing="10">
-            <children>
-                <HBox spacing="10">
-                    <children>
-                        <Label text="Tiến trình tải:"/>
-                        <ProgressBar fx:id="downloadProgress" prefWidth="300"/>
-                        <Label fx:id="downloadStatusLabel" text="Chưa tải"/>
-                    </children>
-                </HBox>
-                <HBox spacing="10">
-                    <children>
-                        <Button text="Tải file mẫu" onAction="#onDownloadFile"/>
-                    </children>
-                </HBox>
-            </children>
-        </VBox>
-    </bottom>
+<!--    <bottom>-->
+<!--        <VBox spacing="10">-->
+<!--            <children>-->
+<!--                <HBox spacing="10">-->
+<!--                    <children>-->
+<!--                        <Label text="Tiến trình tải:"/>-->
+<!--                        <ProgressBar fx:id="downloadProgress" prefWidth="300"/>-->
+<!--                        <Label fx:id="downloadStatusLabel" text="Chưa tải"/>-->
+<!--                    </children>-->
+<!--                </HBox>-->
+<!--                <HBox spacing="10">-->
+<!--                    <children>-->
+<!--                        <Button text="Tải file mẫu" onAction="#onDownloadFile"/>-->
+<!--                    </children>-->
+<!--                </HBox>-->
+<!--            </children>-->
+<!--        </VBox>-->
+<!--    </bottom>-->
 
 </BorderPane>

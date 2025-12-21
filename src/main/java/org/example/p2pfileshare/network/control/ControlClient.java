@@ -154,6 +154,55 @@ public class ControlClient {
         return files;
     }
 
+    /**
+     * Gửi yêu cầu ngắt kết nối tới peer (yêu cầu peer server xoá quyền truy cập của mình).
+     * Trả về true nếu peer phản hồi DISCONNECT_NOTIFY (thành công), false nếu lỗi.
+     */
+    public boolean sendDisconnectRequest(PeerInfo peer) {
+        if (peer == null) return false;
+        return sendDisconnectRequest(peer.getIp(), peer.getControlPort(), peer.getPeerId());
+    }
+
+    public boolean sendDisconnectRequest(String host, int controlPort, String toPeer) {
+        System.out.println("[ControlClient] Sending DISCONNECT_REQUEST to " + host + ":" + controlPort + " -> " + toPeer);
+        try (Socket socket = new Socket(host, controlPort);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true)) {
+
+            String msg = ControlProtocol.build(
+                    ControlProtocol.DISCONNECT_REQUEST,
+                    myPeerId,   // from = mình
+                    toPeer,     // to = peer đích
+                    "Request disconnect"
+            );
+
+            writer.println(msg);
+            System.out.println("[ControlClient] Sent: " + msg);
+
+            // Đọc phản hồi 1 dòng (ControlServer hiện gửi DISCONNECT_NOTIFY)
+            String respRaw = reader.readLine();
+            System.out.println("[ControlClient] Received: " + respRaw);
+            if (respRaw == null || respRaw.isBlank()) {
+                return false;
+            }
+
+            ControlProtocol.ParsedMessage parsed = ControlProtocol.parse(respRaw);
+            if (parsed == null) return false;
+
+            // Nếu là DISCONNECT_NOTIFY cho mình -> gọi handler hiển thị alert và trả về true
+            if (ControlProtocol.DISCONNECT_NOTIFY.equals(parsed.command) && myPeerId.equals(parsed.toPeer)) {
+                handleDisconnectNotifyClient(parsed);
+                return true;
+            }
+
+            return false;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     // DTO đơn giản cho UI
     public static class RemoteFile {
         public final String name;
@@ -198,6 +247,16 @@ public class ControlClient {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Ngắt kết nối");
             alert.setHeaderText("Bạn đã bị ngắt kết nối");
+            alert.setContentText(disconnectorName);
+            alert.showAndWait();
+        });
+    }
+    private void handleDisconnectNotifyClient(ControlProtocol.ParsedMessage msg) {
+        String disconnectorName = msg.note != null ? msg.note : "Unknown";
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Ngắt kết nối");
+            alert.setHeaderText("ngắt kết nối thành công");
             alert.setContentText(disconnectorName);
             alert.showAndWait();
         });

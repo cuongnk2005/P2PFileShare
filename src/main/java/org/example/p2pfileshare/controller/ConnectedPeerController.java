@@ -32,6 +32,9 @@ public class ConnectedPeerController {
     private ControlClient controlClient;
     private FileShareService fileShareService;
 
+    // NEW: callback được PeerTabController đăng ký để biết khi tab này đã ngắt kết nối thành công
+    private Runnable onDisconnectedCallback;
+
     public void init(PeerInfo peer, ControlClient controlClient, FileShareService fileShareService) {
         this.peer = peer;
         this.controlClient = controlClient;
@@ -194,13 +197,71 @@ public class ConnectedPeerController {
     }
 
 
+    // NEW: setter callback
+    public void setOnDisconnected(Runnable callback) {
+        this.onDisconnectedCallback = callback;
+    }
+
     @FXML
     private void onDisconnect() {
-        // chỉ đổi trạng thái UI; logic disconnect nâng cao có thể thêm sau
-        statusLabel.setText("Đã ngắt kết nối");
-        // đóng tab hiện tại
-        peerNameLabel.getScene().getWindow();
-        // Tab sẽ do RootController tạo và chứa, ở đây controller con không tự đóng.
+        // Thực hiện tương tự logic ở PeerTabController: gửi request tới peer, chờ phản hồi rồi cập nhật UI
+        if (peer == null) {
+            new Alert(Alert.AlertType.INFORMATION, "Peer không hợp lệ").showAndWait();
+            return;
+        }
+
+        // Nếu chưa kết nối thì chỉ cập nhật UI
+        if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
+            statusLabel.setText("Đã ngắt kết nối");
+            fileTable.setDisable(true);
+            return;
+        }
+
+        statusLabel.setText("Đang ngắt kết nối...");
+        peer.setConnectionState(PeerInfo.ConnectionState.PENDING);
+        // Cập nhật progress/disable UI tạm thời
+        progress.setProgress(-1);
+        fileTable.setDisable(true);
+
+        Task<Boolean> task = new Task<>() {
+            @Override
+            protected Boolean call() {
+                return controlClient.sendDisconnectRequest(peer);
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            boolean ok = Boolean.TRUE.equals(task.getValue());
+            if (ok) {
+                // Thành công: cập nhật UI tab
+                statusLabel.setText("Đã ngắt kết nối");
+                progress.setProgress(0);
+                fileTable.setDisable(true);
+
+                // Gọi callback để PeerTabController cập nhật danh sách peer và remove controller
+                if (onDisconnectedCallback != null) {
+                    try { onDisconnectedCallback.run(); } catch (Exception ex) { ex.printStackTrace(); }
+                }
+
+            } else {
+                // Thất bại: rollback UI, cho phép thao tác lại
+                statusLabel.setText("Ngắt kết nối thất bại");
+                progress.setProgress(0);
+                fileTable.setDisable(false);
+                peer.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
+                new Alert(Alert.AlertType.WARNING, "Không thể gửi yêu cầu ngắt kết nối tới peer").showAndWait();
+            }
+        });
+
+        task.setOnFailed(e -> {
+            statusLabel.setText("Lỗi khi ngắt kết nối");
+            progress.setProgress(0);
+            fileTable.setDisable(false);
+            peer.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
+            new Alert(Alert.AlertType.ERROR, "Lỗi khi thực hiện ngắt kết nối: " + task.getException()).showAndWait();
+        });
+
+        new Thread(task, "disconnect-from-connected-tab").start();
     }
 
     // Row model cho TableView

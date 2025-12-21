@@ -56,6 +56,7 @@ public class PeerTabController {
         this.globalStatusLabel = globalStatusLabel;
 
         setupTable();
+        onScanPeers();
     }
 
     private void setupTable() {
@@ -211,6 +212,24 @@ public class PeerTabController {
             ConnectedPeerController controller = loader.getController();
             controller.init(peer, controlClient, fileShareService);
 
+            // NEW: đăng ký callback để khi tab gọi là đã ngắt kết nối thì cập nhật peerList và xoá mapping
+            controller.setOnDisconnected(() -> {
+                // chạy trên JavaFX thread
+                Platform.runLater(() -> {
+                    // Đặt trạng thái của peer trong danh sách về NOT_CONNECTED
+                    for (PeerInfo p : peerList) {
+                        if (peer.getPeerId().equals(p.getPeerId())) {
+                            p.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
+                            break;
+                        }
+                    }
+                    // Xoá controller mapping và cập nhật UI
+                    connectedControllers.remove(peer.getPeerId());
+                    if (peerTable != null) peerTable.refresh();
+                    if (peerStatusLabel != null) peerStatusLabel.setText("Đã ngắt kết nối: " + peer.getName());
+                });
+            });
+
             Tab tab = new Tab("Kết nối: " + peer.getName());
             tab.setContent(content);
             tab.setClosable(true);
@@ -299,9 +318,57 @@ public class PeerTabController {
             return;
         }
 
-        peer.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
+        // Nếu chưa kết nối thì chỉ cập nhật UI
+        if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
+            peer.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
+            peerTable.refresh();
+            peerStatusLabel.setText("Đã ngắt kết nối");
+            return;
+        }
+
+        peerStatusLabel.setText("Đang ngắt kết nối...");
+        peer.setConnectionState(PeerInfo.ConnectionState.PENDING);
         peerTable.refresh();
-        peerStatusLabel.setText("Đã ngắt kết nối");
+
+        Task<Boolean> task = new Task<>() {
+            @Override
+            protected Boolean call() {
+                // Gọi ControlClient để gửi DISCONNECT_REQUEST tới peer
+                return controlClient.sendDisconnectRequest(peer);
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            boolean ok = Boolean.TRUE.equals(task.getValue());
+            if (ok) {
+                // Thành công: cập nhật trạng thái trong peerList
+                peer.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
+                peerStatusLabel.setText("Đã ngắt kết nối");
+
+                // Nếu có tab kết nối đang mở, báo để cập nhật UI tab và xoá mapping controller
+                ConnectedPeerController ctrl = connectedControllers.remove(peer.getPeerId());
+                if (ctrl != null) {
+                    ctrl.onPeerDisconnected();
+                    // Không tự động đóng tab để tránh thao tác UI phức tạp ở đây; RootController/TabPane có thể đóng nếu muốn.
+                }
+
+                peerTable.refresh();
+            } else {
+                peer.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
+                peerStatusLabel.setText("Ngắt kết nối thất bại");
+                new Alert(Alert.AlertType.WARNING, "Không thể gửi yêu cầu ngắt kết nối tới peer").showAndWait();
+                peerTable.refresh();
+            }
+        });
+
+        task.setOnFailed(e -> {
+            peer.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
+            peerStatusLabel.setText("Lỗi khi ngắt kết nối");
+            new Alert(Alert.AlertType.ERROR, "Lỗi khi thực hiện ngắt kết nối: " + task.getException()).showAndWait();
+            peerTable.refresh();
+        });
+
+        new Thread(task, "disconnect-peer").start();
     }
 
     private void show(String msg) {

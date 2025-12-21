@@ -50,9 +50,9 @@
                 </Tab>
 
                 <!-- TAB SEARCH -->
-                <Tab text="Tìm kiếm" closable="false">
-                    <fx:include source="SearchTab.fxml" fx:id="searchTab" />
-                </Tab>
+<!--                <Tab text="Tìm kiếm" closable="false">-->
+<!--                    <fx:include source="SearchTab.fxml" fx:id="searchTab" />-->
+<!--                </Tab>-->
 
                 <!-- TAB HISTORY -->
                 <Tab text="Lịch sử tải" closable="false">
