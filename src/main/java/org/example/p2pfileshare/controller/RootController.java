@@ -181,34 +181,18 @@ public class RootController {
     private void onChangeName() {
         var owner = mainTabPane != null && mainTabPane.getScene() != null ? mainTabPane.getScene().getWindow() : null;
         var opt = ChangeNameController.showDialog(
-                owner,
+                mainTabPane.getScene().getWindow(),
                 myName,
+                controlClient,
+                controlServer,
                 newName -> {
-                    Platform.runLater(() -> {
-
-                        this.myName = newName;
-
-                        if (userNameLabel != null) {
-                            userNameLabel.setText(newName);
-                        }
-
-                        if (peerService != null) {
-                            peerService.setMyDisplayName(newName);
-                        }
-
-                        if (controlClient != null) {
-                            controlClient.setMyDisplayName(newName);
-                        }
-
-                        if (fileShareService != null) {
-                            fileShareService.setMyDisplayName(newName);
-                        }
-
-                        globalStatusLabel.setText("Đã đổi tên thành: " + newName);
-                    });
+                    myName = newName;
+                    userNameLabel.setText(myName);
+                    peerService.setMyDisplayName(myName);
+                    fileShareService.setMyDisplayName(myName);
+                    controlClient.setMyDisplayName(myName);
                 }
         );
-
         if (opt.isPresent()) {
             String newName = opt.get().trim();
             if (!newName.isEmpty() && !newName.equals(myName)) {

@@ -7,49 +7,75 @@ import javafx.scene.control.TextField;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import org.example.p2pfileshare.network.control.ControlClient;
+import org.example.p2pfileshare.network.control.ControlServer;
+import org.example.p2pfileshare.util.AppConfig;
 
 import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import org.example.p2pfileshare.network.control.ControlClient;
-import org.example.p2pfileshare.network.control.ControlProtocol;
-import org.example.p2pfileshare.network.control.ControlServer;
-import org.example.p2pfileshare.service.PeerService;
-import org.example.p2pfileshare.util.AppConfig;
-
 public class ChangeNameController {
+
     @FXML private TextField nameField;
+
     private Stage stage;
-    private String result = null;
+    private String result;
+
     private ControlClient controlClient;
-    private ControlServer ControlServer;
+    private ControlServer controlServer;
+
     private Consumer<String> onUpdatePeerName;
+
     public static final String KEY_PEER_NAME = "peer.displayName";
-    @FXML
-    private void initialize() {
-        // no-op
+
+    // ✅ BẮT BUỘC cho FXMLLoader
+    public ChangeNameController() {}
+
+    /**
+     * Inject các dependency sau khi FXMLLoader load xong
+     */
+    public void init(Stage stage,
+                     ControlClient controlClient,
+                     ControlServer controlServer,
+                     Consumer<String> callback) {
+        this.stage = stage;
+        this.controlClient = controlClient;
+        this.controlServer = controlServer;
+        this.onUpdatePeerName = callback;
     }
 
     @FXML
     private void onSave() {
         String v = nameField.getText();
-        if (v != null) v = v.trim();
-        if (v == null || v.isEmpty()) {
-            return; // don't close
-        }
+        if (v == null) v = "";
+        v = v.trim();
+
+        if (v.isEmpty()) return;
+
         result = v;
 
-        // Lưu vào AppConfig để lần sau mở app có thể lấy lại tên này
-        AppConfig.save(KEY_PEER_NAME, result);
+        // lưu cấu hình
+        AppConfig.save(KEY_PEER_NAME, v);
+
+        // callback về Root
         if (onUpdatePeerName != null) {
             try {
-                onUpdatePeerName.accept(result);
+                onUpdatePeerName.accept(v);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
         }
-        controlClient.broadcastUpdateName(ControlServer.getConnectedPeers(), result);
+
+        // broadcast cho các peer đang connected
+        if (controlClient != null && controlServer != null) {
+            try {
+                controlClient.broadcastUpdateName(controlServer.getConnectedPeers(), v);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+
         if (stage != null) stage.close();
     }
 
@@ -65,17 +91,21 @@ public class ChangeNameController {
         nameField.selectAll();
     }
 
+    /**
+     * ✅ showDialog bản đúng: truyền controlClient + controlServer để init()
+     */
     public static Optional<String> showDialog(
             Window owner,
             String initialName,
+            ControlClient controlClient,
+            ControlServer controlServer,
             Consumer<String> onUpdatePeerName
     ) {
         try {
             FXMLLoader loader = new FXMLLoader(
-                    ChangeNameController.class.getResource(
-                            "/org/example/p2pfileshare/ChangeNameDialog.fxml"
-                    )
+                    ChangeNameController.class.getResource("/org/example/p2pfileshare/ChangeNameDialog.fxml")
             );
+
             Scene scene = new Scene(loader.load());
             ChangeNameController controller = loader.getController();
 
@@ -86,16 +116,14 @@ public class ChangeNameController {
             stage.setResizable(false);
             stage.setScene(scene);
 
-            controller.stage = stage;
+            // ✅ init dependency
+            controller.init(stage, controlClient, controlServer, onUpdatePeerName);
 
-            // ✅ SET CALLBACK TỪ ROOT
-            controller.setonUpdatePeerName(onUpdatePeerName);
-
-            // load initial name
+            // load initial name (ưu tiên initialName, fallback config)
             String nameToShow = initialName;
-            if (nameToShow == null || nameToShow.isEmpty()) {
+            if (nameToShow == null || nameToShow.isBlank()) {
                 String saved = AppConfig.load(KEY_PEER_NAME);
-                if (saved != null && !saved.isEmpty()) nameToShow = saved;
+                if (saved != null && !saved.isBlank()) nameToShow = saved;
             }
             controller.setInitialName(nameToShow);
 
@@ -106,9 +134,5 @@ public class ChangeNameController {
             e.printStackTrace();
             return Optional.empty();
         }
-    }
-
-    public void setonUpdatePeerName(Consumer<String> callback) {
-        this.onUpdatePeerName = callback;
     }
 }
