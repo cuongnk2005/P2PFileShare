@@ -24,9 +24,7 @@ public class PeerService {
 
     }
 
-    /**
-     * Quét peer trong LAN (broadcast).
-     */
+    // quét tìm Peer
     public List<PeerInfo> scanPeers() {
         List<PeerInfo> found = PeerDiscovery.discoverPeers(myPeerId, 3000);
         discoveredPeers.clear();
@@ -34,9 +32,7 @@ public class PeerService {
         return found;
     }
 
-    /**
-     * Tìm PeerInfo từ tên (displayName). Nếu có nhiều peer cùng tên, trả peer đầu tiên.
-     */
+    // tìm peer theo name
     public PeerInfo getPeerFromName(String name) {
         for (PeerInfo p : discoveredPeers) {
             if (p.getName().equalsIgnoreCase(name)) {
@@ -45,13 +41,14 @@ public class PeerService {
         }
         return null;
     }
+
+    // Lấy danh sách Peer, nếu chưa quét thì quét trước
     public List<PeerInfo> getListPeer() {
         if (discoveredPeers.isEmpty()) scanPeers();
         return discoveredPeers;
     }
-    /**
-     * Tìm PeerInfo từ peerId (UUID) — khuyến nghị sử dụng.
-     */
+
+    // tìm peer theo id
     public PeerInfo getPeerFromId(String peerId) {
         for (PeerInfo p : discoveredPeers) {
             if (p.getPeerId().equals(peerId)) {
@@ -60,18 +57,12 @@ public class PeerService {
         }
         return null;
     }
-//    public List<PeerInfo> getAcceptedPeer() {
-//        return
-//    }
 
-    /**
-     * Lấy danh sách tất cả peers đã quét.
-     */
+
+    // lấy danh sách peer
     public List<PeerInfo> getDiscoveredPeers() {
         return discoveredPeers;
     }
-
-    // ================= GETTER/SETTER =================
 
     public String getMyPeerId() {
         return myPeerId;
