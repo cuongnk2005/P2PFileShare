@@ -16,12 +16,22 @@ public class ChangeNameController {
     @FXML private TextField nameField;
     private Stage stage;
     private String result = null;
-    public static final String KEY_PEER_NAME = "KEY_PEER_NAME";
+    public static final String KEY_PEER_NAME = "peer.displayName";
     @FXML
     private void initialize() {
         // no-op
     }
 
+    @FXML
+    private void onSave() {
+        String v = nameField.getText();
+        if (v != null) v = v.trim();
+        if (v == null || v.isEmpty()) {
+            return; // don't close
+        }
+        result = v;
+        if (stage != null) stage.close();
+    }
 
     @FXML
     private void onCancel() {
