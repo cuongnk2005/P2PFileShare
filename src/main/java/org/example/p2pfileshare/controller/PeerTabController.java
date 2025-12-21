@@ -60,11 +60,12 @@ public class PeerTabController {
 
         setupTable();
         onScanPeers();
-        controlServer.setOnPeerAccepted(() -> {
+        controlServer.setpeerUpdateName(() -> {
             System.out.println("[IncomingConnection] Peer accepted → reload table");
 
             Platform.runLater(this::onScanPeers);
         });
+
     }
 
     private void setupTable() {
@@ -105,6 +106,7 @@ public class PeerTabController {
         });
 
         peerTable.setItems(peerList);
+
     }
 
     private void showMsg(String msg) {

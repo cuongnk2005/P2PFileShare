@@ -57,7 +57,8 @@ public class ControlClient {
             String msg = ControlProtocol.build(
                     ControlProtocol.CONNECT_REQUEST,
                     myPeerId,   // from (peerId)
-                    toPeer      // to (peerId)
+                    toPeer,
+                    myDisplayName// to (peerId)
             );
 
             writer.println(msg);

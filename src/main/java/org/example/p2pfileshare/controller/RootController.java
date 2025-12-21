@@ -125,7 +125,7 @@ public class RootController {
         // 5) Bật Discovery Responder
         PeerDiscovery.startResponder(
                 myPeerId,
-                myName,
+                () -> myName,
                 FILE_PORT,
                 CONTROL_PORT
         );
@@ -185,12 +185,14 @@ public class RootController {
                 myName,
                 controlClient,
                 controlServer,
+                peerService,
                 newName -> {
-                    myName = newName;
+                    this.myName = newName;
                     userNameLabel.setText(myName);
                     peerService.setMyDisplayName(myName);
                     fileShareService.setMyDisplayName(myName);
                     controlClient.setMyDisplayName(myName);
+                    System.out.println("[trong root] Cập nhật tên peer thành: " + myName);
                 }
         );
         if (opt.isPresent()) {

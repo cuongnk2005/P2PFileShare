@@ -58,7 +58,26 @@ public class PeerService {
         }
         return null;
     }
+    public List<PeerInfo> getPeersByIds(List<String> connectedPeerIds) {
+        List<PeerInfo> result = new ArrayList<>();
+        if (connectedPeerIds == null || connectedPeerIds.isEmpty()) {
+            return result;
+        }
 
+        // đảm bảo đã scan peer
+        if (discoveredPeers.isEmpty()) {
+            scanPeers();
+        }
+
+        for (String id : connectedPeerIds) {
+            if (id == null) continue;
+            PeerInfo p = getPeerFromId(id);
+            if (p != null) {
+                result.add(p);
+            }
+        }
+        return result;
+    }
     // lấy danh sách peer
     public List<PeerInfo> getDiscoveredPeers() {
         return discoveredPeers;

@@ -22,7 +22,7 @@ public class PeerDiscovery {
     private static volatile boolean responderStarted = false;
 
     // chế độ lắng nghe, sử dụng thread
-    public static void startResponder(String myPeerId, String myDisplayName, int filePort, int controlPort) {
+    public static void startResponder(String myPeerId,  java.util.function.Supplier<String> displayNameSupplier, int filePort, int controlPort) {
         if (responderStarted) return;
         responderStarted = true;
 
@@ -62,7 +62,7 @@ public class PeerDiscovery {
                     // Chuẩn format mới: P2P_DISCOVER_RESPONSE|peerId|displayName|filePort|controlPort
                     String response = RESPONSE_PREFIX + "|" +
                             myPeerId + "|" +
-                            myDisplayName + "|" +
+                            displayNameSupplier.get() + "|" +
                             filePort + "|" +
                             controlPort;
 

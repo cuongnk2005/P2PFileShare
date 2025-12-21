@@ -27,7 +27,7 @@ public class ControlServer {
     private final int port;
     private volatile boolean running = false;
     // NEW: Lưu PeerInfo theo peerId (chỉ peer đã ACCEPT)
-    private final ConcurrentHashMap<String, PeerInfo> connectedPeerMap = new ConcurrentHashMap<>();
+
 
     // Đã chấp nhận kết nối từ peerId nào
     private final Set<String> acceptedPeers = ConcurrentHashMap.newKeySet();
@@ -102,15 +102,15 @@ public class ControlServer {
                 if (ControlProtocol.CONNECT_REQUEST.equals(msg.command)) {
                     String fromPeer = msg.fromPeer; // người yêu cầu
                     String toPeer   = msg.toPeer;   // mình
-
+                    String namespace = msg.note;    // optional namespace
                     boolean accept = true;
                     if (onIncomingConnect != null) {
                         try {
-                            accept = Boolean.TRUE.equals(onIncomingConnect.apply(fromPeer));
+                            accept = Boolean.TRUE.equals(onIncomingConnect.apply(namespace));
                             if (accept) {
                                 acceptedPeers.add(fromPeer);
-                                PeerInfo pi = buildPeerInfoFromConnect(s, msg);
-                                connectedPeerMap.put(fromPeer, pi);
+
+
                                 if (onPeerAccepted != null) {
                                     onPeerAccepted.run();
                                 }
@@ -169,7 +169,7 @@ public class ControlServer {
                     String fromPeer = msg.fromPeer; // người yêu cầu ngắt (mình) hoặc client
                     String toPeer   = msg.toPeer;   // người bị ngắt
                     acceptedPeers.remove(fromPeer); //remove(toPeer)
-                    connectedPeerMap.remove(fromPeer);
+
                     writer.println(ControlProtocol.build(ControlProtocol.DISCONNECT_NOTIFY,
                             msg.toPeer, msg.fromPeer, "Disconnected"));
                     System.out.println("[ControlServer] Disconnected: " + fromPeer);
@@ -190,6 +190,8 @@ public class ControlServer {
                     return;
                 }
                 else if (ControlProtocol.UPDATE_NAME.equals(msg.command)) {
+                    System.out.println("[ControlServer] Received UPDATE_NAME from " + msg.fromPeer +"va name mới"+ msg.toPeer);
+
                     if (onUpdatePeerName != null) {
                         onUpdatePeerName.run();
                     }
@@ -267,37 +269,13 @@ public class ControlServer {
             return false;
         }
     }
-    private PeerInfo buildPeerInfoFromConnect(Socket s, ControlProtocol.ParsedMessage msg) {
-        String peerId = msg.fromPeer;
-        String ip = s.getInetAddress().getHostAddress();
-
-        // default/fallback
-        String displayName = peerId;
-        int filePort = -1;
-        int controlPort = -1;
-        String status = "Online";
-
-        // NOTE format đề xuất: "displayName;filePort;controlPort"
-        // ví dụ: "Cuong;9002;9001"
-        String note = msg.note;
-        if (note != null && !note.isBlank()) {
-            String[] parts = note.split(";");
-            if (parts.length > 0 && !parts[0].isBlank()) displayName = parts[0].trim();
-            if (parts.length > 1) filePort = tryParseInt(parts[1], -1);
-            if (parts.length > 2) controlPort = tryParseInt(parts[2], -1);
-        }
-
-        PeerInfo pi = new PeerInfo(peerId, displayName, ip, filePort, controlPort, status);
-        pi.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
-        return pi;
-    }
 
     private int tryParseInt(String s, int def) {
         try { return Integer.parseInt(s.trim()); }
         catch (Exception e) { return def; }
     }
 
-    public List<PeerInfo> getConnectedPeers() {
-        return new ArrayList<>(connectedPeerMap.values());
+    public List<String> getConnectedPeers() {
+        return new ArrayList<>(acceptedPeers);
     }
 }

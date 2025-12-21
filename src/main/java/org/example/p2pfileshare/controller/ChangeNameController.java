@@ -9,9 +9,11 @@ import javafx.stage.Stage;
 import javafx.stage.Window;
 import org.example.p2pfileshare.network.control.ControlClient;
 import org.example.p2pfileshare.network.control.ControlServer;
+import org.example.p2pfileshare.service.PeerService;
 import org.example.p2pfileshare.util.AppConfig;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -24,10 +26,10 @@ public class ChangeNameController {
 
     private ControlClient controlClient;
     private ControlServer controlServer;
-
+    private PeerService peerService;
     private Consumer<String> onUpdatePeerName;
 
-    public static final String KEY_PEER_NAME = "peer.displayName";
+    public static final String KEY_PEER_NAME = "peer_display_name";
 
     // ✅ BẮT BUỘC cho FXMLLoader
     public ChangeNameController() {}
@@ -38,10 +40,12 @@ public class ChangeNameController {
     public void init(Stage stage,
                      ControlClient controlClient,
                      ControlServer controlServer,
+                     PeerService peerService,
                      Consumer<String> callback) {
         this.stage = stage;
         this.controlClient = controlClient;
         this.controlServer = controlServer;
+        this.peerService = peerService;
         this.onUpdatePeerName = callback;
     }
 
@@ -56,8 +60,8 @@ public class ChangeNameController {
         result = v;
 
         // lưu cấu hình
-        AppConfig.save(KEY_PEER_NAME, v);
-
+        AppConfig.save(KEY_PEER_NAME, result);
+    System.out.println("co chay ham luu ten peer" + result);
         // callback về Root
         if (onUpdatePeerName != null) {
             try {
@@ -70,7 +74,8 @@ public class ChangeNameController {
         // broadcast cho các peer đang connected
         if (controlClient != null && controlServer != null) {
             try {
-                controlClient.broadcastUpdateName(controlServer.getConnectedPeers(), v);
+
+                controlClient.broadcastUpdateName(peerService.getPeersByIds(controlServer.getConnectedPeers()), result);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -99,6 +104,7 @@ public class ChangeNameController {
             String initialName,
             ControlClient controlClient,
             ControlServer controlServer,
+            PeerService peerService,
             Consumer<String> onUpdatePeerName
     ) {
         try {
@@ -117,7 +123,7 @@ public class ChangeNameController {
             stage.setScene(scene);
 
             // ✅ init dependency
-            controller.init(stage, controlClient, controlServer, onUpdatePeerName);
+            controller.init(stage, controlClient, controlServer,peerService, onUpdatePeerName);
 
             // load initial name (ưu tiên initialName, fallback config)
             String nameToShow = initialName;
