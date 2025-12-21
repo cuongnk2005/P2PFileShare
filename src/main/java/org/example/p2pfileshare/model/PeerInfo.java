@@ -13,7 +13,7 @@ public class PeerInfo {
     private final String peerId;
 
     // Tên hiển thị do người dùng đặt (có thể trùng giữa các peer)
-    private final String displayName;
+    private  String displayName;
 
     // Deprecated/kept for backward compatibility: getName() will return displayName
     // private final String name;
@@ -94,5 +94,8 @@ public class PeerInfo {
 
     public void setConnectionState(ConnectionState connectionState) {
         this.connectionState = connectionState;
+    }
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 }
