@@ -9,6 +9,7 @@ import java.net.Socket;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class ChunkedFileServer {
@@ -16,6 +17,9 @@ public class ChunkedFileServer {
     private final int port;
     private final AtomicReference<Path> shareFolder = new AtomicReference<>();
     private static final int DEFAULT_CHUNK_SIZE = 1024 * 1024; // 1 MB
+
+    // Đỡ tạo vô hạn thread
+    private final ExecutorService pool = Executors.newFixedThreadPool(32);
 
     public ChunkedFileServer(int port, Path initialFolder) {
         this.port = port;
@@ -35,7 +39,7 @@ public class ChunkedFileServer {
                 System.out.println("[ChunkedFileServer] Listening on port " + port);
                 while (true) {
                     Socket client = serverSocket.accept();
-                    handleClient(client);
+                    pool.submit(() -> handleClient(client));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -46,60 +50,62 @@ public class ChunkedFileServer {
     }
 
     private void handleClient(Socket socket) {
-        new Thread(() -> {
-            try (Socket s = socket;
-                 DataInputStream in = new DataInputStream(s.getInputStream());
-                 DataOutputStream out = new DataOutputStream(s.getOutputStream())) {
+        try (Socket s = socket;
+             DataInputStream in = new DataInputStream(s.getInputStream());
+             DataOutputStream out = new DataOutputStream(s.getOutputStream())) {
 
-                String line = in.readUTF();
-                if (line == null) return;
+            // ✅ Client gửi writeUTF -> server phải readUTF
+            String request = in.readUTF();
+            if (request == null || request.isBlank()) return;
 
-                FileTransferProtocol.ParsedCommand cmd = FileTransferProtocol.parse(line);
-                if (cmd == null) return;
-
-                Path root = shareFolder.get();
-                if (root == null) {
-                    out.writeUTF("ERROR|No share folder set");
-                    return;
-                }
-
-                if (FileTransferProtocol.FILE_META_REQUEST.equals(cmd.command)) {
-                    handleMetaRequest(cmd, root, out);
-                } else if (FileTransferProtocol.GET_CHUNK.equals(cmd.command)) {
-                    handleChunkRequest(cmd, root, out);
-                }
-
-            } catch (IOException e) {
-                e.printStackTrace();
+            FileTransferProtocol.ParsedCommand cmd = FileTransferProtocol.parse(request);
+            if (cmd == null) {
+                sendError(out, "Invalid command");
+                return;
             }
-        }, "chunked-handler").start();
+
+            Path root = shareFolder.get();
+            if (root == null) {
+                sendError(out, "No share folder set");
+                return;
+            }
+
+            if (FileTransferProtocol.FILE_META_REQUEST.equals(cmd.command)) {
+                handleMetaRequest(cmd, root, out);
+            } else if (FileTransferProtocol.GET_CHUNK.equals(cmd.command)) {
+                handleChunkRequest(cmd, root, out);
+            } else {
+                sendError(out, "Unknown command: " + cmd.command);
+            }
+
+        } catch (EOFException eof) {
+            // client đóng sớm
+        } catch (IOException e) {
+            System.err.println("[ChunkedFileServer] Client error: " + e.getMessage());
+        }
     }
 
     private void handleMetaRequest(FileTransferProtocol.ParsedCommand cmd, Path root, DataOutputStream out) throws IOException {
         String fileName = cmd.get(1);
         if (fileName == null) {
-            out.writeUTF("ERROR");
-            out.writeUTF("Missing filename");
-            out.flush();
+            sendError(out, "Missing filename");
             return;
         }
 
-        Path safeRoot = root.toAbsolutePath().normalize();
-        Path filePath = safeRoot.resolve(fileName).normalize();
-
-        if (!filePath.startsWith(safeRoot) || !Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-            out.writeUTF("ERROR");
-            out.writeUTF("File not found");
-            out.flush();
+        Path filePath = root.resolve(fileName).normalize();
+        if (!filePath.startsWith(root) || !Files.exists(filePath) || Files.isDirectory(filePath)) {
+            sendError(out, "File not found");
             return;
         }
 
         long fileSize = Files.size(filePath);
         int totalChunks = (int) Math.ceil((double) fileSize / DEFAULT_CHUNK_SIZE);
 
+        // hash toàn file
         String fileSha256 = FileHashUtil.sha256(filePath);
 
-        List<String> chunkHashes = new ArrayList<>(Math.max(totalChunks, 0));
+        // hash từng chunk
+        List<String> chunkHashes = new ArrayList<>(totalChunks);
         try (RandomAccessFile raf = new RandomAccessFile(filePath.toFile(), "r")) {
             byte[] buffer = new byte[DEFAULT_CHUNK_SIZE];
             for (int i = 0; i < totalChunks; i++) {
@@ -110,32 +116,29 @@ public class ChunkedFileServer {
                 int read = raf.read(buffer, 0, toRead);
 
                 if (read <= 0) {
-                    out.writeUTF("ERROR");
-                    out.writeUTF("Failed to read chunk " + i);
-                    out.flush();
-                    return;
+                    chunkHashes.add(FileHashUtil.sha256(new byte[0]));
+                } else {
+                    byte[] chunkData = new byte[read];
+                    System.arraycopy(buffer, 0, chunkData, 0, read);
+                    chunkHashes.add(FileHashUtil.sha256(chunkData));
                 }
-
-                byte[] chunkData = new byte[read];
-                System.arraycopy(buffer, 0, chunkData, 0, read);
-
-                chunkHashes.add(FileHashUtil.sha256(chunkData));
             }
         }
 
+        // ✅ Binary response đúng với client requestMetadata():
+        // type, name, fileSize, chunkSize, totalChunks, fileSha256, hash[i]...
         out.writeUTF(FileTransferProtocol.FILE_META_RESPONSE);
         out.writeUTF(fileName);
         out.writeLong(fileSize);
         out.writeInt(DEFAULT_CHUNK_SIZE);
         out.writeInt(totalChunks);
         out.writeUTF(fileSha256);
-
         for (int i = 0; i < totalChunks; i++) {
             out.writeUTF(chunkHashes.get(i));
         }
-
         out.flush();
-        System.out.println("[ChunkedFileServer] Sent metadata for " + fileName);
+
+        System.out.println("[ChunkedFileServer] Sent metadata for " + fileName + " chunks=" + totalChunks);
     }
 
     private void handleChunkRequest(FileTransferProtocol.ParsedCommand cmd, Path root, DataOutputStream out) throws IOException {
@@ -143,7 +146,7 @@ public class ChunkedFileServer {
         String indexStr = cmd.get(2);
 
         if (fileName == null || indexStr == null) {
-            out.writeUTF("ERROR|Missing parameters");
+            sendError(out, "Missing parameters");
             return;
         }
 
@@ -151,28 +154,26 @@ public class ChunkedFileServer {
         try {
             chunkIndex = Integer.parseInt(indexStr);
         } catch (NumberFormatException e) {
-            out.writeUTF("ERROR|Invalid chunk index");
+            sendError(out, "Invalid chunk index");
             return;
         }
 
         Path filePath = root.resolve(fileName).normalize();
-        if (!filePath.startsWith(root) || !Files.exists(filePath)) {
-            out.writeUTF("ERROR|File not found");
+        if (!filePath.startsWith(root) || !Files.exists(filePath) || Files.isDirectory(filePath)) {
+            sendError(out, "File not found");
             return;
         }
 
         long fileSize = Files.size(filePath);
         long offset = (long) chunkIndex * DEFAULT_CHUNK_SIZE;
-
-        if (offset >= fileSize) {
-            out.writeUTF("ERROR|Chunk index out of range");
+        if (offset >= fileSize || chunkIndex < 0) {
+            sendError(out, "Chunk index out of range");
             return;
         }
 
-        int chunkSize = (int) Math.min(DEFAULT_CHUNK_SIZE, fileSize - offset);
+        int dataLen = (int) Math.min(DEFAULT_CHUNK_SIZE, fileSize - offset);
 
-        // Đọc chunk
-        byte[] chunkData = new byte[chunkSize];
+        byte[] chunkData = new byte[dataLen];
         try (RandomAccessFile raf = new RandomAccessFile(filePath.toFile(), "r")) {
             raf.seek(offset);
             raf.readFully(chunkData);
@@ -180,12 +181,21 @@ public class ChunkedFileServer {
 
         String chunkHash = FileHashUtil.sha256(chunkData);
 
-        // Gửi: CHUNK_DATA|chunkIndex|chunkSize|hash
-        out.writeUTF(FileTransferProtocol.CHUNK_DATA + "|" + chunkIndex + "|" + chunkSize + "|" + chunkHash);
+        // ✅ Binary response đúng với client downloadChunk():
+        // type, index(int), len(int), hash(UTF), bytes...
+        out.writeUTF(FileTransferProtocol.CHUNK_DATA);
+        out.writeInt(chunkIndex);
+        out.writeInt(dataLen);
+        out.writeUTF(chunkHash);
         out.write(chunkData);
         out.flush();
 
-        System.out.println("[ChunkedFileServer] Sent chunk " + chunkIndex + " (" + chunkSize + " bytes)");
+        System.out.println("[ChunkedFileServer] Sent chunk " + chunkIndex + " len=" + dataLen);
+    }
+
+    private void sendError(DataOutputStream out, String reason) throws IOException {
+        out.writeUTF("ERROR");
+        out.writeUTF(reason);
+        out.flush();
     }
 }
-
