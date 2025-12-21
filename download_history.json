@@ -89,5 +89,19 @@
     "peerName": "cuong",
     "peerIp": "192.168.1.5",
     "downloadDate": "2025-12-21T15:35:49.1797028"
+  },
+  {
+    "fileName": "BaiTap6.docx",
+    "savedPath": "E:\\p2p tải về\\BaiTap6.docx",
+    "peerName": "Peer1",
+    "peerIp": "172.16.0.155",
+    "downloadDate": "2025-12-21T19:42:05.68448"
+  },
+  {
+    "fileName": "Nguyen Gia Kiet_23IT136.rar",
+    "savedPath": "E:\\p2p tải về\\Nguyen Gia Kiet_23IT136.rar",
+    "peerName": "Peer1",
+    "peerIp": "172.16.0.155",
+    "downloadDate": "2025-12-21T19:45:22.7779261"
   }
 ]
