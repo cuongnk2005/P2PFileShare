@@ -15,6 +15,7 @@ import org.example.p2pfileshare.util.AppConfig;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
+import javafx.application.Platform;
 
 public class ConnectedPeerController {
 
@@ -177,20 +178,28 @@ public class ConnectedPeerController {
             @Override
             protected Boolean call() {
                 Path saveTo = selectedFile.toPath();
-                return fileShareService.download(peer, fileRow.relativePath, saveTo);
+
+                // Truyền callback để cập nhật progress bar real-time
+                return fileShareService.download(peer, fileRow.relativePath, saveTo, progressValue -> {
+                    Platform.runLater(() -> {
+                        progress.setProgress(progressValue);
+                        statusLabel.setText(String.format("Đang tải: %s (%.1f%%)",
+                            fileRow.name, progressValue * 100));
+                    });
+                });
             }
         };
 
         task.setOnSucceeded(e -> {
             Boolean result = task.getValue();
-            System.out.println("Task getValue(): " + result);
             boolean ok = (result != null && result);
             progress.setProgress(ok ? 1.0 : 0.0);
             statusLabel.setText(ok ? "Hoàn tất - Đã lưu tại: " + selectedFile.getAbsolutePath() : "Lỗi tải");
         });
+
         task.setOnFailed(e -> {
             progress.setProgress(0);
-            statusLabel.setText("Lỗi tải");
+            statusLabel.setText("Lỗi tải: " + task.getException().getMessage());
         });
 
         new Thread(task, "download-remote-file").start();

@@ -147,6 +147,7 @@ public class RootController {
         if (userNameLabel != null && myName != null) {
             userNameLabel.setText(myName);
         }
+        this.fileShareService.startServer();
     }
 
     // ================= MENU =================

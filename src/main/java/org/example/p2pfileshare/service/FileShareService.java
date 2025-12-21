@@ -3,8 +3,8 @@ package org.example.p2pfileshare.service;
 import org.example.p2pfileshare.model.DownloadHistory;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.model.SharedFileLocal;
-import org.example.p2pfileshare.network.transfer.FileClient;
-import org.example.p2pfileshare.network.transfer.FileServer;
+import org.example.p2pfileshare.network.transfer.ChunkedFileClient;
+import org.example.p2pfileshare.network.transfer.ChunkedFileServer;
 import org.example.p2pfileshare.util.DownloadHistoryManager;
 
 import java.io.File;
@@ -15,13 +15,13 @@ import java.util.List;
 
 public class FileShareService {
 
-    private final int fileServerPort;    // cổng cho FileServer
-    private File shareFolder;            // thư mục đang chia sẻ, client gửi den
-    private FileServer fileServer;       // server gửi file cho peer khác
+    private final int fileServerPort;
+    private File shareFolder;
+    private ChunkedFileServer fileServer; // THAY ĐỔI: dùng ChunkedFileServer
     private HistoryService historyService;
-    private String myDisplayName; // Tên hiển thị của peer
+    private String myDisplayName;
 
-    public FileShareService(int fileServerPort,HistoryService historyService ) {
+    public FileShareService(int fileServerPort, HistoryService historyService) {
         this.fileServerPort = fileServerPort;
         this.historyService = historyService;
     }
@@ -31,7 +31,7 @@ public class FileShareService {
     // ======================
     public synchronized void startServer() {
         if (fileServer == null && shareFolder != null) {
-            fileServer = new FileServer(fileServerPort, shareFolder.toPath());
+            fileServer = new ChunkedFileServer(fileServerPort, shareFolder.toPath());
             fileServer.start();
         }
     }
@@ -55,7 +55,7 @@ public class FileShareService {
 
         // nếu server chưa chạy → khởi động
         if (fileServer == null) {
-            fileServer = new FileServer(fileServerPort, folder.toPath());
+            fileServer = new ChunkedFileServer(fileServerPort, folder.toPath());
             fileServer.start();
         }
         // nếu server đang chạy → đổi folder ngay lập tức (không restart)
@@ -71,14 +71,26 @@ public class FileShareService {
     // ==============================
     //        TẢI FILE TỪ PEER
     // ==============================
-    public boolean download(PeerInfo peer, String relativePath, Path saveTo) {
-        boolean success = FileClient.downloadFile(
-                peer.getIp(),
-                peer.getFileServerPort(),
-                relativePath,
-                saveTo
-        );
-        System.out.println("trạng thái success: " + success);
+    /**
+     * THAY ĐỔI: Dùng ChunkedFileClient để tải file
+     */
+    public boolean download(PeerInfo peer, String relativePath, Path saveTo,
+                           java.util.function.Consumer<Double> progressCallback) {
+        boolean success = false;
+        try {
+            success = ChunkedFileClient.downloadFile(
+                    peer.getIp(),
+                    peer.getFileServerPort(),
+                    relativePath,
+                    saveTo,
+                    progressCallback
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        System.out.println("Trạng thái download: " + success);
 
         if (success) {
             try {
@@ -95,11 +107,15 @@ public class FileShareService {
             } catch (Exception e) {
                 System.err.println("✗ Lỗi khi lưu lịch sử tải xuống:");
                 e.printStackTrace();
-                // Không ảnh hưởng đến kết quả download
             }
         }
 
         return success;
+    }
+
+    // Overload cũ để tương thích
+    public boolean download(PeerInfo peer, String relativePath, Path saveTo) {
+        return download(peer, relativePath, saveTo, null);
     }
 
     // ======= NEW: expose download history to UI =========
