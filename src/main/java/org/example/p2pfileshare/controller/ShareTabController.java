@@ -63,7 +63,7 @@ public class ShareTabController {
                 }
             }
         });
-        
+
         colSharedSubject.setCellValueFactory(new PropertyValueFactory<>("subject"));
         colSharedTags.setCellValueFactory(new PropertyValueFactory<>("tags"));
         colSharedVisibility.setCellValueFactory(new PropertyValueFactory<>("visible"));
