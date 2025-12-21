@@ -6,6 +6,7 @@ import org.example.p2pfileshare.service.FileShareService;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,6 +26,8 @@ public class ControlServer {
 
     private final int port;
     private volatile boolean running = false;
+    // NEW: Lưu PeerInfo theo peerId (chỉ peer đã ACCEPT)
+    private final ConcurrentHashMap<String, PeerInfo> connectedPeerMap = new ConcurrentHashMap<>();
 
     // Đã chấp nhận kết nối từ peerId nào
     private final Set<String> acceptedPeers = ConcurrentHashMap.newKeySet();
@@ -34,7 +37,7 @@ public class ControlServer {
     // Để trả danh sách file local
     private FileShareService fileShareService;
     private Runnable onPeerAccepted;
-
+    private Runnable onUpdatePeerName;
     // NEW: callback khi nhận DISCONNECT_NOTIFY từ remote (peer bị báo)
     private Consumer<ControlProtocol.ParsedMessage> onDisconnectNotify;
 
@@ -106,6 +109,8 @@ public class ControlServer {
                             accept = Boolean.TRUE.equals(onIncomingConnect.apply(fromPeer));
                             if (accept) {
                                 acceptedPeers.add(fromPeer);
+                                PeerInfo pi = buildPeerInfoFromConnect(s, msg);
+                                connectedPeerMap.put(fromPeer, pi);
                                 if (onPeerAccepted != null) {
                                     onPeerAccepted.run();
                                 }
@@ -159,10 +164,12 @@ public class ControlServer {
 
                     writer.println(resp);
                     System.out.println("[ControlServer] Sent LIST_FILES_RESPONSE (" + payload.length() + " bytes)");
-                }else if (ControlProtocol.DISCONNECT_REQUEST.equals(msg.command)) {
+                }
+                else if (ControlProtocol.DISCONNECT_REQUEST.equals(msg.command)) {
                     String fromPeer = msg.fromPeer; // người yêu cầu ngắt (mình) hoặc client
                     String toPeer   = msg.toPeer;   // người bị ngắt
                     acceptedPeers.remove(fromPeer); //remove(toPeer)
+                    connectedPeerMap.remove(fromPeer);
                     writer.println(ControlProtocol.build(ControlProtocol.DISCONNECT_NOTIFY,
                             msg.toPeer, msg.fromPeer, "Disconnected"));
                     System.out.println("[ControlServer] Disconnected: " + fromPeer);
@@ -181,6 +188,11 @@ public class ControlServer {
                     }
                     // không cần gửi phản hồi
                     return;
+                }
+                else if (ControlProtocol.UPDATE_NAME.equals(msg.command)) {
+                    if (onUpdatePeerName != null) {
+                        onUpdatePeerName.run();
+                    }
                 }
 
             } catch (IOException e) {
@@ -220,7 +232,9 @@ public class ControlServer {
     public void setOnPeerAccepted(Runnable callback) {
         this.onPeerAccepted = callback;
     }
-
+    public void setpeerUpdateName(Runnable callback) {
+        this.onUpdatePeerName = callback;
+    }
     // NEW: setter để UI đăng ký listener khi nhận DISCONNECT_NOTIFY
     public void setOnDisconnectNotify(Consumer<ControlProtocol.ParsedMessage> callback) {
         this.onDisconnectNotify = callback;
@@ -253,5 +267,37 @@ public class ControlServer {
             return false;
         }
     }
+    private PeerInfo buildPeerInfoFromConnect(Socket s, ControlProtocol.ParsedMessage msg) {
+        String peerId = msg.fromPeer;
+        String ip = s.getInetAddress().getHostAddress();
 
+        // default/fallback
+        String displayName = peerId;
+        int filePort = -1;
+        int controlPort = -1;
+        String status = "Online";
+
+        // NOTE format đề xuất: "displayName;filePort;controlPort"
+        // ví dụ: "Cuong;9002;9001"
+        String note = msg.note;
+        if (note != null && !note.isBlank()) {
+            String[] parts = note.split(";");
+            if (parts.length > 0 && !parts[0].isBlank()) displayName = parts[0].trim();
+            if (parts.length > 1) filePort = tryParseInt(parts[1], -1);
+            if (parts.length > 2) controlPort = tryParseInt(parts[2], -1);
+        }
+
+        PeerInfo pi = new PeerInfo(peerId, displayName, ip, filePort, controlPort, status);
+        pi.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
+        return pi;
+    }
+
+    private int tryParseInt(String s, int def) {
+        try { return Integer.parseInt(s.trim()); }
+        catch (Exception e) { return def; }
+    }
+
+    public List<PeerInfo> getConnectedPeers() {
+        return new ArrayList<>(connectedPeerMap.values());
+    }
 }

@@ -114,6 +114,11 @@ public class RootController {
 
             });
         });
+//        changeNameController.setonUpdatePeerName(msg -> {
+//            Platform.runLater(() -> {
+//               this.myName = msg;
+//            });
+//        });
 
         System.out.println("[Root] ControlServer started at port " + CONTROL_PORT);
 
@@ -128,7 +133,7 @@ public class RootController {
 
         // 6) Inject service vào UI controllers
         if (peerTabController != null)
-            peerTabController.init(peerService, fileShareService, controlClient, globalStatusLabel);
+            peerTabController.init(peerService, fileShareService, controlClient, controlServer, globalStatusLabel);
 
         if (shareTabController != null)
             shareTabController.init(fileShareService, globalStatusLabel);
@@ -175,7 +180,35 @@ public class RootController {
     @FXML
     private void onChangeName() {
         var owner = mainTabPane != null && mainTabPane.getScene() != null ? mainTabPane.getScene().getWindow() : null;
-        var opt = org.example.p2pfileshare.controller.ChangeNameController.showDialog(owner, myName);
+        var opt = ChangeNameController.showDialog(
+                owner,
+                myName,
+                newName -> {
+                    Platform.runLater(() -> {
+
+                        this.myName = newName;
+
+                        if (userNameLabel != null) {
+                            userNameLabel.setText(newName);
+                        }
+
+                        if (peerService != null) {
+                            peerService.setMyDisplayName(newName);
+                        }
+
+                        if (controlClient != null) {
+                            controlClient.setMyDisplayName(newName);
+                        }
+
+                        if (fileShareService != null) {
+                            fileShareService.setMyDisplayName(newName);
+                        }
+
+                        globalStatusLabel.setText("Đã đổi tên thành: " + newName);
+                    });
+                }
+        );
+
         if (opt.isPresent()) {
             String newName = opt.get().trim();
             if (!newName.isEmpty() && !newName.equals(myName)) {

@@ -10,18 +10,48 @@ import javafx.stage.Window;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.function.Consumer;
+
+import org.example.p2pfileshare.network.control.ControlClient;
+import org.example.p2pfileshare.network.control.ControlProtocol;
+import org.example.p2pfileshare.network.control.ControlServer;
+import org.example.p2pfileshare.service.PeerService;
+import org.example.p2pfileshare.util.AppConfig;
 
 public class ChangeNameController {
-
     @FXML private TextField nameField;
     private Stage stage;
     private String result = null;
-    public static final String KEY_PEER_NAME = "KEY_PEER_NAME";
+    private ControlClient controlClient;
+    private ControlServer ControlServer;
+    private Consumer<String> onUpdatePeerName;
+    public static final String KEY_PEER_NAME = "peer.displayName";
     @FXML
     private void initialize() {
         // no-op
     }
 
+    @FXML
+    private void onSave() {
+        String v = nameField.getText();
+        if (v != null) v = v.trim();
+        if (v == null || v.isEmpty()) {
+            return; // don't close
+        }
+        result = v;
+
+        // Lưu vào AppConfig để lần sau mở app có thể lấy lại tên này
+        AppConfig.save(KEY_PEER_NAME, result);
+        if (onUpdatePeerName != null) {
+            try {
+                onUpdatePeerName.accept(result);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+        controlClient.broadcastUpdateName(ControlServer.getConnectedPeers(), result);
+        if (stage != null) stage.close();
+    }
 
     @FXML
     private void onCancel() {
@@ -35,9 +65,17 @@ public class ChangeNameController {
         nameField.selectAll();
     }
 
-    public static Optional<String> showDialog(Window owner, String initialName) {
+    public static Optional<String> showDialog(
+            Window owner,
+            String initialName,
+            Consumer<String> onUpdatePeerName
+    ) {
         try {
-            FXMLLoader loader = new FXMLLoader(ChangeNameController.class.getResource("/org/example/p2pfileshare/ChangeNameDialog.fxml"));
+            FXMLLoader loader = new FXMLLoader(
+                    ChangeNameController.class.getResource(
+                            "/org/example/p2pfileshare/ChangeNameDialog.fxml"
+                    )
+            );
             Scene scene = new Scene(loader.load());
             ChangeNameController controller = loader.getController();
 
@@ -49,15 +87,28 @@ public class ChangeNameController {
             stage.setScene(scene);
 
             controller.stage = stage;
-            controller.setInitialName(initialName);
+
+            // ✅ SET CALLBACK TỪ ROOT
+            controller.setonUpdatePeerName(onUpdatePeerName);
+
+            // load initial name
+            String nameToShow = initialName;
+            if (nameToShow == null || nameToShow.isEmpty()) {
+                String saved = AppConfig.load(KEY_PEER_NAME);
+                if (saved != null && !saved.isEmpty()) nameToShow = saved;
+            }
+            controller.setInitialName(nameToShow);
 
             stage.showAndWait();
-
             return Optional.ofNullable(controller.result);
 
         } catch (IOException e) {
             e.printStackTrace();
             return Optional.empty();
         }
+    }
+
+    public void setonUpdatePeerName(Consumer<String> callback) {
+        this.onUpdatePeerName = callback;
     }
 }

@@ -261,4 +261,47 @@ public class ControlClient {
             alert.showAndWait();
         });
     }
+    public void broadcastUpdateName(List<PeerInfo> connectedPeers, String newName) {
+        if (connectedPeers == null || connectedPeers.isEmpty()) {
+            System.out.println("[ControlClient] broadcastUpdateName: no connected peers");
+            return;
+        }
+
+        if (newName == null) newName = "";
+        newName = newName.trim();
+        if (newName.isEmpty()) {
+            System.out.println("[ControlClient] broadcastUpdateName: newName is empty");
+            return;
+        }
+
+        // Nếu bạn có ControlProtocol.UPDATE_NAME thì nên dùng build() cho đồng bộ format
+        // Ví dụ: ControlProtocol.build(ControlProtocol.UPDATE_NAME, myPeerId, "*", newName);
+        String msg = "UPDATE_NAME|" + myPeerId + "|" + newName;
+
+        System.out.println("[ControlClient] broadcastUpdateName -> peers=" + connectedPeers.size()
+                + " msg=" + msg);
+
+        int ok = 0, fail = 0;
+
+        for (PeerInfo p : connectedPeers) {
+            if (p == null) continue;
+
+            // tránh gửi cho chính mình nếu list có chứa mình
+            if (myPeerId.equals(p.getPeerId())) continue;
+
+            try {
+                sendOneWay(p.getIp(), p.getControlPort(), msg);
+                System.out.println("[ControlClient] UPDATE_NAME sent -> " + p.getPeerId()
+                        + " (" + p.getIp() + ":" + p.getControlPort() + ")");
+                ok++;
+            } catch (Exception e) {
+                System.out.println("[ControlClient] UPDATE_NAME FAIL -> " + p.getPeerId()
+                        + " (" + p.getIp() + ":" + p.getControlPort() + ") err=" + e.getMessage());
+                fail++;
+            }
+        }
+
+        System.out.println("[ControlClient] broadcastUpdateName done. ok=" + ok + ", fail=" + fail);
+    }
+
 }

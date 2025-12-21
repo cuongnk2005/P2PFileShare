@@ -6,6 +6,7 @@ import org.example.p2pfileshare.network.discovery.PeerDiscovery;
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class PeerService {
 
     private final String myPeerId;
@@ -57,7 +58,6 @@ public class PeerService {
         }
         return null;
     }
-
 
     // lấy danh sách peer
     public List<PeerInfo> getDiscoveredPeers() {

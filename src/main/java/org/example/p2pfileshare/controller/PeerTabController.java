@@ -12,6 +12,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.AnchorPane;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.network.control.ControlClient;
+import org.example.p2pfileshare.network.control.ControlServer;
 import org.example.p2pfileshare.service.FileShareService;
 import org.example.p2pfileshare.service.PeerService;
 
@@ -28,7 +29,7 @@ public class PeerTabController {
     private FileShareService fileShareService;
     private ControlClient controlClient;
     private Label globalStatusLabel;
-
+    private ControlServer controlServer;
     // map lưu nhiều controller, key = peerId
     private final Map<String, ConnectedPeerController> connectedControllers = new HashMap<>();
 
@@ -48,15 +49,22 @@ public class PeerTabController {
     public void init(PeerService peerService,
                      FileShareService fileShareService,
                      ControlClient controlClient,
+                     ControlServer controlServer,
                      Label globalStatusLabel) {
         // nhận các service bên ngoài truyền vào
         this.peerService = peerService;
         this.fileShareService = fileShareService;
         this.controlClient = controlClient;
+        this.controlServer = controlServer;
         this.globalStatusLabel = globalStatusLabel;
 
         setupTable();
         onScanPeers();
+        controlServer.setOnPeerAccepted(() -> {
+            System.out.println("[IncomingConnection] Peer accepted → reload table");
+
+            Platform.runLater(this::onScanPeers);
+        });
     }
 
     private void setupTable() {
