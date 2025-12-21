@@ -21,11 +21,7 @@ public class PeerDiscovery {
     private static volatile int boundPort = -1;
     private static volatile boolean responderStarted = false;
 
-    /**
-     * Khởi động 1 thread UDP responder:
-     * - Lắng nghe DISCOVER_REQUEST trên một trong các DISCOVERY_PORTS
-     * - Trả về: P2P_DISCOVER_RESPONSE|peerId|displayName|filePort|controlPort
-     */
+    // chế độ lắng nghe, sử dụng thread
     public static void startResponder(String myPeerId, String myDisplayName, int filePort, int controlPort) {
         if (responderStarted) return;
         responderStarted = true;
@@ -33,12 +29,12 @@ public class PeerDiscovery {
         Thread t = new Thread(() -> {
             DatagramSocket socket = null;
             try {
-                // Thử bind lần lượt các port trong DISCOVERY_PORTS
+                // Thử mở lần lượt các port trong DISCOVERY_PORTS
                 for (int p : DISCOVERY_PORTS) {
                     try {
                         socket = new DatagramSocket(p);
                         boundPort = p;
-                        System.out.println("[Discovery] Responder bound on UDP port " + p);
+                        System.out.println("[Discovery] Responder trên UDP với port: " + p);
                         break;
                     } catch (BindException ex) {
                         // Port đang dùng, thử port khác
@@ -46,7 +42,7 @@ public class PeerDiscovery {
                 }
 
                 if (socket == null) {
-                    System.err.println("[Discovery] Không thể bind bất kỳ discovery port nào!");
+                    System.err.println("[Discovery] Không thể mở bất kỳ discovery port nào!");
                     return;
                 }
 
@@ -97,20 +93,15 @@ public class PeerDiscovery {
         t.start();
     }
 
-    /**
-     * Gửi broadcast DISCOVER_REQUEST, đợi phản hồi trong timeoutMillis,
-     * trả về danh sách PeerInfo tìm được.
-     *
-     * Tham số myPeerId để loại bỏ chính mình dựa trên UUID duy nhất.
-     */
+    // Quét tìm peer trong LAN
     public static List<PeerInfo> discoverPeers(String myPeerId, int timeoutMillis) {
 
         List<PeerInfo> result = new ArrayList<>();
 
         try (DatagramSocket socket = new DatagramSocket()) {
 
-            socket.setBroadcast(true);
-            socket.setSoTimeout(timeoutMillis);
+            socket.setBroadcast(true);  // cho phép gửi broadcast
+            socket.setSoTimeout(timeoutMillis); // timeout chỉ chờ trong 3s, quá thì thôi
 
             byte[] data = DISCOVER_MSG.getBytes();
 
@@ -119,7 +110,7 @@ public class PeerDiscovery {
                 DatagramPacket packet = new DatagramPacket(
                         data,
                         data.length,
-                        InetAddress.getByName("255.255.255.255"),
+                        InetAddress.getByName("255.255.255.255"), // gửi cho tất cả các mạng LAN
                         port
                 );
                 socket.send(packet);
@@ -162,10 +153,10 @@ public class PeerDiscovery {
                             result.add(peer);
 
                             System.out.println("[Discovery] Found: " + displayName +
-                                    " @ " + ip +
-                                    " filePort=" + peerFilePort +
-                                    " ctrlPort=" + peerControlPort +
-                                    " id=" + peerId);
+                                    " ip: " + ip +
+                                    " filePort:" + peerFilePort +
+                                    " ctrlPort:" + peerControlPort +
+                                    " id:" + peerId);
 
                         } else if (parts.length >= 4) {
                             // Khoản hỗ trợ format cũ: P2P_DISCOVER_RESPONSE|name|filePort|controlPort
@@ -188,10 +179,10 @@ public class PeerDiscovery {
                             );
                             result.add(peer);
 
-                            System.out.println("[Discovery] Found (legacy): " + peerName +
-                                    " @ " + ip +
-                                    " filePort=" + peerFilePort +
-                                    " ctrlPort=" + peerControlPort);
+                            System.out.println("[Discovery] Found: " + peerName +
+                                    " ip:" + ip +
+                                    " filePort:" + peerFilePort +
+                                    " ctrlPort:" + peerControlPort);
                         }
                     }
 

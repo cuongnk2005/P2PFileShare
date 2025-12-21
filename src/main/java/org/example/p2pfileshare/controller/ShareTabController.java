@@ -45,13 +45,12 @@ public class ShareTabController {
         loadLastSharedFolder();
     }
 
-    // ==========================
-    // Setup bảng hiển thị file
-    // ==========================
+    // ánh xạ data từ file sharefilelocal lên bảng
     private void setupTable() {
         colSharedName.setCellValueFactory(new PropertyValueFactory<>("fileName"));
         colSharedType.setCellValueFactory(new PropertyValueFactory<>("extension"));
         colSharedSize.setCellValueFactory(new PropertyValueFactory<>("size"));
+
         // Format hiển thị kích thước: KB/MB/GB
         colSharedSize.setCellFactory(col -> new TableCell<SharedFileLocal, Long>() {
             @Override
@@ -64,6 +63,7 @@ public class ShareTabController {
                 }
             }
         });
+        
         colSharedSubject.setCellValueFactory(new PropertyValueFactory<>("subject"));
         colSharedTags.setCellValueFactory(new PropertyValueFactory<>("tags"));
         colSharedVisibility.setCellValueFactory(new PropertyValueFactory<>("visible"));

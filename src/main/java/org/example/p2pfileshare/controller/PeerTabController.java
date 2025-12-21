@@ -49,7 +49,7 @@ public class PeerTabController {
                      FileShareService fileShareService,
                      ControlClient controlClient,
                      Label globalStatusLabel) {
-
+        // nhận các service bên ngoài truyền vào
         this.peerService = peerService;
         this.fileShareService = fileShareService;
         this.controlClient = controlClient;
@@ -107,13 +107,9 @@ public class PeerTabController {
         alert.showAndWait();
     }
 
-
-    // ===================================
     // QUÉT PEER
-    // ===================================
     @FXML
     private void onScanPeers() {
-
         // snapshot trạng thái TRƯỚC KHI clear
         Map<String, PeerInfo.ConnectionState> prevStates = peerList.stream()
                 .collect(Collectors.toMap(
@@ -134,7 +130,6 @@ public class PeerTabController {
 
         task.setOnSucceeded(e -> {
             List<PeerInfo> scanned = task.getValue();
-
             // gán lại state
             for (PeerInfo p : scanned) {
                 PeerInfo.ConnectionState prev = prevStates.get(p.getPeerId());
@@ -145,7 +140,7 @@ public class PeerTabController {
                 }
             }
 
-            peerList.setAll(scanned);
+            peerList.setAll(scanned); // đổ data mới vào table
             peerStatusLabel.setText("Đã tìm thấy " + scanned.size() + " peer");
             if (globalStatusLabel != null) globalStatusLabel.setText("Quét LAN xong");
             peerTable.setDisable(false);
@@ -159,15 +154,12 @@ public class PeerTabController {
         new Thread(task).start();
     }
 
-    // Public helper để gọi từ RootController khi cần refresh
+    // sử dụng để refresh từ bên ngoài
     public void refresh() {
         onScanPeers();
     }
 
-
-    // ===================================
     // KẾT NỐI PEER
-    // ===================================
     @FXML
     private void onConnectPeer() {
         PeerInfo peer = peerTable.getSelectionModel().getSelectedItem();
@@ -204,15 +196,17 @@ public class PeerTabController {
         new Thread(task).start();
     }
 
+    // mở tab riêng
     private void openConnectedTab(PeerInfo peer) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConnectedPeerTab.fxml"));
             AnchorPane content = loader.load();
 
+            // lấy controller của tab con để cài đặt
             ConnectedPeerController controller = loader.getController();
             controller.init(peer, controlClient, fileShareService);
 
-            // NEW: đăng ký callback để khi tab gọi là đã ngắt kết nối thì cập nhật peerList và xoá mapping
+            // đăng ký callback để khi ngắt kết nối thì cập nhật peerList và xoá mapping
             controller.setOnDisconnected(() -> {
                 // chạy trên JavaFX thread
                 Platform.runLater(() -> {
@@ -261,55 +255,52 @@ public class PeerTabController {
         }
     }
 
-    @FXML
-    private void onDownloadFile() {
-        PeerInfo peer = peerTable.getSelectionModel().getSelectedItem();
+//    @FXML
+//    private void onDownloadFile() {
+//        PeerInfo peer = peerTable.getSelectionModel().getSelectedItem();
+//
+//        // 1) Chưa chọn peer
+//        if (peer == null) {
+//            showMsg("Vui lòng chọn peer trước!");
+//            return;
+//        }
+//
+//        // 2) Peer chưa kết nối
+//        if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
+//            showMsg("Bạn phải kết nối với peer trước khi tải file!");
+//            return;
+//        }
+//
+//        String fileName = "test.pdf";
+//        Path saveTo = Path.of("Downloads/" + fileName);
+//
+//        // ======= DEMO TẢI FILE TEST =======
+//        downloadProgress.setProgress(0);
+//        downloadStatusLabel.setText("Đang tải...");
+//
+//        Task<Boolean> task = new Task<>() {
+//            @Override
+//            protected Boolean call() {
+//                return fileShareService.download(peer, fileName, saveTo);
+//            }
+//        };
+//
+//        task.setOnSucceeded(e -> {
+//            boolean ok = task.getValue();
+//            downloadProgress.setProgress(ok ? 1.0 : 0.0);
+//            downloadStatusLabel.setText(ok ? "Hoàn tất!" : "Lỗi tải file!");
+//        });
+//
+//        task.setOnFailed(e -> {
+//            downloadProgress.setProgress(0);
+//            downloadStatusLabel.setText("Lỗi tải file!");
+//            task.getException().printStackTrace();
+//        });
+//
+//        new Thread(task, "peer-download").start();
+//    }
 
-        // 1) Chưa chọn peer
-        if (peer == null) {
-            showMsg("Vui lòng chọn peer trước!");
-            return;
-        }
-
-        // 2) Peer chưa kết nối
-        if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
-            showMsg("Bạn phải kết nối với peer trước khi tải file!");
-            return;
-        }
-
-        // ======= DEMO TẢI FILE TEST =======
-        String fileName = "test.pdf";
-        Path saveTo = Path.of("Downloads/" + fileName);
-
-        downloadProgress.setProgress(0);
-        downloadStatusLabel.setText("Đang tải...");
-
-        Task<Boolean> task = new Task<>() {
-            @Override
-            protected Boolean call() {
-                return fileShareService.download(peer, fileName, saveTo);
-            }
-        };
-
-        task.setOnSucceeded(e -> {
-            boolean ok = task.getValue();
-            downloadProgress.setProgress(ok ? 1.0 : 0.0);
-            downloadStatusLabel.setText(ok ? "Hoàn tất!" : "Lỗi tải file!");
-        });
-
-        task.setOnFailed(e -> {
-            downloadProgress.setProgress(0);
-            downloadStatusLabel.setText("Lỗi tải file!");
-            task.getException().printStackTrace();
-        });
-
-        new Thread(task, "peer-download").start();
-    }
-
-
-    // ===================================
     // NGẮT KẾT NỐI
-    // ===================================
     @FXML
     private void onDisconnectPeer() {
         PeerInfo peer = peerTable.getSelectionModel().getSelectedItem();
@@ -349,7 +340,7 @@ public class PeerTabController {
                 ConnectedPeerController ctrl = connectedControllers.remove(peer.getPeerId());
                 if (ctrl != null) {
                     ctrl.onPeerDisconnected();
-                    // Không tự động đóng tab để tránh thao tác UI phức tạp ở đây; RootController/TabPane có thể đóng nếu muốn.
+                    // Không tự động đóng tab, để người dùng xem thông báo
                 }
 
                 peerTable.refresh();
@@ -375,7 +366,7 @@ public class PeerTabController {
         new Alert(Alert.AlertType.INFORMATION, msg).showAndWait();
     }
 
-    // PUBLIC API: gọi khi remote peer bị ngắt (hoặc khi muốn đặt trạng thái peer về "chưa kết nối")
+    // gọi khi remote peer bị ngắt (hoặc khi muốn đặt trạng thái peer về "chưa kết nối")
     public void onRemotePeerDisconnected(String peerId) {
         if (peerId == null || peerId.isBlank()) return;
 
@@ -401,10 +392,10 @@ public class PeerTabController {
                 ctrl.onPeerDisconnected();
             }
 
-            // Nếu không tìm thấy controller, không sao — peerList đã được cập nhật
+            // Nếu không tìm thấy controller thì peerList cũng đã được cập nhật
             if (!updated) {
-                // Optional: reload toàn bộ peers từ service nếu muốn đồng bộ
-                // refresh();
+                // reload toàn bộ peers từ service
+                refresh();
             }
 
             if (peerTable != null) peerTable.refresh();
