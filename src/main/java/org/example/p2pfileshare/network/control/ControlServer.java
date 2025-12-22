@@ -13,15 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Consumer;
 
-/**
- * Lắng nghe các yêu cầu điều khiển:
- * - CONNECT_REQUEST|fromPeer|toPeer
- * - LIST_FILES|fromPeer|toPeer
- *
- * Sau khi nhận:
- *   1) CONNECT_REQUEST -> hỏi onIncomingConnect(fromPeer)
- *   2) LIST_FILES -> trả tên file được chia sẻ (top-level) dạng TSV trong note
- */
 public class ControlServer {
 
     private final int port;
@@ -31,7 +22,7 @@ public class ControlServer {
 
     // Đã chấp nhận kết nối từ peerId nào
     private final Set<String> acceptedPeers = ConcurrentHashMap.newKeySet();
-    /** callback: nhận peerId gửi yêu cầu, trả true nếu chấp nhận, false nếu từ chối */
+
     private final Function<String, Boolean> onIncomingConnect;
 
     // Để trả danh sách file local
@@ -40,6 +31,9 @@ public class ControlServer {
     private Runnable onUpdatePeerName;
     // NEW: callback khi nhận DISCONNECT_NOTIFY từ remote (peer bị báo)
     private Consumer<ControlProtocol.ParsedMessage> onDisconnectNotify;
+
+    // Callback nhận tin nhắn hệ thống
+    private java.util.function.BiConsumer<String, String> onSystemMessageCallback;
 
     public ControlServer(int port, Function<String, Boolean> onIncomingConnect) {
         this.port = port;
@@ -52,9 +46,14 @@ public class ControlServer {
         this.fileShareService = fileShareService;
     }
 
+    public void setOnSystemMessageReceived(java.util.function.BiConsumer<String, String> callback) {
+        this.onSystemMessageCallback = callback;
+    }
+
     public void start() {
         if (running) return;
         running = true;
+
 
         Thread t = new Thread(() -> {
             try (ServerSocket serverSocket = new ServerSocket(port)) {
@@ -93,6 +92,29 @@ public class ControlServer {
 
                 String raw = reader.readLine();
                 if (raw == null || raw.isEmpty()) return;
+
+                if (raw.startsWith("CMD:")) {
+                    System.out.println("[ControlServer] Received System CMD: " + raw);
+
+                    String[] parts = raw.split("\\|");
+                    // parts[0] = CMD:REMOVE_FILE
+                    // parts[1] = SenderID (quan trọng để định tuyến)
+                    // parts[2] = FileName
+
+                    if (parts.length >= 3) {
+                        String senderId = parts[1];
+
+                        // Tái tạo lại tin nhắn để gửi cho Controller xử lý
+                        // Controller mong đợi: "CMD:REMOVE_FILE|FileName"
+                        String originalCmd = parts[0] + "|" + parts[2];
+
+                        if (onSystemMessageCallback != null) {
+                            // Gọi về PeerTabController
+                            onSystemMessageCallback.accept(senderId, originalCmd);
+                        }
+                    }
+                    return; // Xử lý xong thì thoát, không parse tiếp
+                }
 
                 ControlProtocol.ParsedMessage msg = ControlProtocol.parse(raw);
                 if (msg == null) return;

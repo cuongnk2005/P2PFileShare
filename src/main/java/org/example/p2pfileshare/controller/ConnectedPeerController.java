@@ -211,6 +211,42 @@ public class ConnectedPeerController {
         this.onDisconnectedCallback = callback;
     }
 
+    public void receivedMessage(String message) {
+        if (message == null) return;
+
+        if (message.startsWith("CMD:REMOVE_FILE|")) {
+            String[] parts = message.split("\\|");
+            if (parts.length >= 2) {
+                String fileNameToRemove = parts[1];
+
+                Platform.runLater(() -> {
+                    removeFileFromList(fileNameToRemove);
+                });
+            }
+        }
+    }
+
+    private void removeFileFromList(String fileName) {
+        Platform.runLater(() -> {
+
+            System.out.println("[DEBUG] Bắt đầu xóa file: [" + fileName + "]");
+            System.out.println("[DEBUG] Số dòng hiện tại: " + rows.size());
+
+            // 2. Xóa với logic so sánh linh hoạt (bỏ khoảng trắng, không phân biệt hoa thường)
+            boolean removed = rows.removeIf(row -> {
+                String rowName = row.getName().trim();
+                String targetName = fileName.trim();
+                return rowName.equalsIgnoreCase(targetName);
+            });
+
+        if (removed) {
+            statusLabel.setText("Đối phương vừa xóa file: " + fileName);
+            fileTable.refresh();
+        } else {
+            System.out.println("Không tìm thấy file để xóa!");
+        }
+    }
+
     @FXML
     private void onDisconnect() {
         // Thực hiện tương tự logic ở PeerTabController: gửi request tới peer, chờ phản hồi rồi cập nhật UI

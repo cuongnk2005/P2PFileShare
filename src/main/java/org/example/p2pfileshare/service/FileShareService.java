@@ -17,7 +17,7 @@ public class FileShareService {
 
     private final int fileServerPort;
     private File shareFolder;
-    private ChunkedFileServer fileServer; // THAY ĐỔI: dùng ChunkedFileServer
+    private ChunkedFileServer fileServer; // dùng ChunkedFileServer để chia sẻ file
     private HistoryService historyService;
     private String myDisplayName;
 
@@ -26,15 +26,15 @@ public class FileShareService {
         this.historyService = historyService;
     }
 
-    // ======================
-    //    KHỞI TẠO SERVER
-    // ======================
+    // khởi tạo server từ người share
     public synchronized void startServer() {
         if (fileServer == null && shareFolder != null) {
             fileServer = new ChunkedFileServer(fileServerPort, shareFolder.toPath());
             fileServer.start();
         }
     }
+
+    // dừng server
     public void stopServer() {
         if (fileServer != null) {
             fileServer.stopServer();
@@ -42,12 +42,9 @@ public class FileShareService {
         }
     }
 
-    // =================================
-    //      ĐỔI FOLDER CHIA SẺ RUNTIME
-    // =================================
+    // đổi folder chia sẻ
     public synchronized void setShareFolder(File folder) {
-
-        // folder null → không chia sẻ gì
+        // folder null → không share
         if (folder == null || !folder.exists() || !folder.isDirectory()) {
             this.shareFolder = null;
             if (fileServer != null) {
@@ -64,7 +61,7 @@ public class FileShareService {
             fileServer = new ChunkedFileServer(fileServerPort, folder.toPath());
             fileServer.start();
         }
-        // nếu server đang chạy → đổi folder ngay lập tức (không restart)
+        // nếu server đang chạy → đổi folder ngay lập tức không cần restart
         else {
             fileServer.changeFolder(folder.toPath());
         }
@@ -74,12 +71,7 @@ public class FileShareService {
         return shareFolder;
     }
 
-    // ==============================
-    //        TẢI FILE TỪ PEER
-    // ==============================
-    /**
-     * THAY ĐỔI: Dùng ChunkedFileClient để tải file
-     */
+    // tải file từ peer khác (client)
     public boolean download(PeerInfo peer, String relativePath, Path saveTo,
                            java.util.function.Consumer<Double> progressCallback) {
         boolean success = false;
@@ -124,14 +116,12 @@ public class FileShareService {
         return download(peer, relativePath, saveTo, null);
     }
 
-    // ======= NEW: expose download history to UI =========
+    // lưu lịch sử download
     public List<DownloadHistory> listDownloadHistory() {
         return historyService.loadHistory();
     }
 
-    // ==============================
-    //    LIỆT KÊ FILE LOCAL SHARE
-    // ==============================
+    // liệt kê file trong thư mục chia sẻ
     public List<SharedFileLocal> listSharedFiles() {
         List<SharedFileLocal> result = new ArrayList<>();
 
@@ -149,15 +139,12 @@ public class FileShareService {
         return result;
     }
 
-    // ==============================
-    //        BUILD METADATA
-    // ==============================
+    // tạo metadata cho file
     private SharedFileLocal buildMetadata(File f) {
-
         String fileName = f.getName();
         long size = f.length();
 
-        // relative path để phía Client dùng khi tải file
+        // đường dẫn tương đối để bên client tải về đúng
         String relativePath = shareFolder.toPath()
                 .relativize(f.toPath())
                 .toString();

@@ -8,11 +8,15 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import org.example.p2pfileshare.model.SharedFileLocal;
+import org.example.p2pfileshare.network.control.ControlClient;
 import org.example.p2pfileshare.service.FileShareService;
 import org.example.p2pfileshare.util.AppConfig;
+import org.example.p2pfileshare.model.PeerInfo;
+import org.example.p2pfileshare.service.PeerService;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 
 public class ShareTabController {
 
@@ -23,9 +27,7 @@ public class ShareTabController {
 
     @FXML private TextField shareFolderField;
 
-    // =======================
     // TableView dùng SharedFileLocal
-    // =======================
     @FXML private TableView<SharedFileLocal> sharedFileTable;
     @FXML private TableColumn<SharedFileLocal, String> colSharedName;
     @FXML private TableColumn<SharedFileLocal, String> colSharedType;
@@ -37,9 +39,15 @@ public class ShareTabController {
     private final ObservableList<SharedFileLocal> sharedFiles =
             FXCollections.observableArrayList();
 
-    public void init(FileShareService fileShareService, Label globalStatusLabel) {
+    private PeerTabController peerTabController;
+    private ControlClient controlClient;
+    private PeerService peerService;
+
+    public void init(FileShareService fileShareService, Label globalStatusLabel, ControlClient controlClient, PeerTabController peerTabController) {
         this.fileShareService = fileShareService;
         this.globalStatusLabel = globalStatusLabel;
+        this.controlClient = controlClient;
+        this.peerTabController = peerTabController;
 
         setupTable();
         loadLastSharedFolder();
@@ -51,8 +59,8 @@ public class ShareTabController {
         colSharedType.setCellValueFactory(new PropertyValueFactory<>("extension"));
         colSharedSize.setCellValueFactory(new PropertyValueFactory<>("size"));
 
-        // Format hiển thị kích thước: KB/MB/GB
-        colSharedSize.setCellFactory(col -> new TableCell<SharedFileLocal, Long>() {
+        // Format hiển thị kích thước file
+        colSharedSize.setCellFactory(col -> new TableCell<SharedFileLocal, Long>() { // chặn data trước để format
             @Override
             protected void updateItem(Long item, boolean empty) {
                 super.updateItem(item, empty);
@@ -70,9 +78,7 @@ public class ShareTabController {
         sharedFileTable.setItems(sharedFiles);
     }
 
-    // =============================================
     // Load thư mục chia sẻ đã lưu trong AppConfig
-    // =============================================
     private void loadLastSharedFolder() {
         String last = AppConfig.load(KEY_SHARE_DIR);
         if (last != null) {
@@ -82,6 +88,7 @@ public class ShareTabController {
             }
         }
     }
+
 
     private void applyShareFolder(File dir) {
         shareFolderField.setText(dir.getAbsolutePath());
@@ -93,9 +100,7 @@ public class ShareTabController {
         }
     }
 
-    // ==========================
     // Chọn thư mục chia sẻ
-    // ==========================
     @FXML
     private void onChooseFolder() {
         DirectoryChooser chooser = new DirectoryChooser();
@@ -108,37 +113,36 @@ public class ShareTabController {
         }
 
         Stage stage = (Stage) shareFolderField.getScene().getWindow();
-        File dir = chooser.showDialog(stage);
+        File dir = chooser.showDialog(stage);   // show dialog
 
-        if (dir != null) {
-            shareFolderField.setText(dir.getAbsolutePath());
-            AppConfig.save(KEY_SHARE_DIR, dir.getAbsolutePath());
-            fileShareService.setShareFolder(dir);
+        loadLastSharedFolder();
+//        if (dir != null) {
+//            shareFolderField.setText(dir.getAbsolutePath());
+//            AppConfig.save(KEY_SHARE_DIR, dir.getAbsolutePath()); // lưu cấu hình
+//            fileShareService.setShareFolder(dir);  // áp dụng thư mục chia sẻ
+//
+//            refreshSharedFiles();
+//
+//            if (globalStatusLabel != null) {
+//                globalStatusLabel.setText("Thư mục chia sẻ: " + dir.getName());
+//            }
+//        }
 
-            refreshSharedFiles();
 
-            if (globalStatusLabel != null) {
-                globalStatusLabel.setText("Thư mục chia sẻ: " + dir.getName());
-            }
-        }
     }
 
-    // ==========================
     // Refresh lại bảng file
-    // ==========================
     @FXML
     private void onRefreshSharedFiles() {
         refreshSharedFiles();
     }
 
     private void refreshSharedFiles() {
-        List<SharedFileLocal> list = fileShareService.listSharedFiles();
-        sharedFiles.setAll(list);
+        List<SharedFileLocal> list = fileShareService.listSharedFiles(); // lấy danh sách file chia sẻ từ ổ cứng
+        sharedFiles.setAll(list); // cập nhật lên bảng
     }
 
-    // ==========================
     // Chưa implement add/remove
-    // ==========================
     @FXML
     private void onAddSharedFile() {
         Alert a = new Alert(Alert.AlertType.INFORMATION,
@@ -155,12 +159,36 @@ public class ShareTabController {
             return;
         }
 
-        Alert a = new Alert(Alert.AlertType.INFORMATION,
-                "Demo: chưa xoá file thật, chỉ minh hoạ.");
-        a.showAndWait();
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Bạn có muốn chắc chắn xóa file: " + selected.getFileName() + " không?");
+        confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    // Lấy đường dẫn file thật
+                    File fileToDelete = new File(shareFolderField.getText(), selected.getFileName());
+                    // Thực hiện xóa
+                    if (fileToDelete.exists() && fileToDelete.delete()) {
+                        // Xóa thành công -> Cập nhật lại giao diện
+                        sharedFiles.remove(selected); // Xóa khỏi bảng
+                        notifyPeersFileRemoved(selected.getFileName());
+                        refreshSharedFiles();
+                        new Alert(Alert.AlertType.INFORMATION, "Đã xóa file thành công!").showAndWait();
+                    } else {
+                        new Alert(Alert.AlertType.ERROR, "Không thể xóa file (Có thể đang mở hoặc thiếu quyền).").showAndWait();
+                    }
+                }
+            });
+        }
+
+    private void notifyPeersFileRemoved(String fileName) {
+        List<PeerInfo> activePeers = peerTabController.getActiveConnectedPeers();
+        String command = "CMD:REMOVE_FILE|" + fileName;
+        for (PeerInfo p : activePeers) {
+            controlClient.sendSystemCommand(p, "REMOVE_FILE|" + fileName);
+            System.out.println("Đã báo cho " + p.getName() + " xóa file: " + fileName);
+        }
     }
 
-    // Helper: đổi bytes -> KB/MB/GB theo ngưỡng
+    // hàm format size của file
     private static String formatSize(long bytes) {
         final double KB = 1024.0;
         final double MB = KB * 1024.0;
