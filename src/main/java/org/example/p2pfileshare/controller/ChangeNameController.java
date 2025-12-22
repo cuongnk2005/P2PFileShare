@@ -34,9 +34,6 @@ public class ChangeNameController {
     // ✅ BẮT BUỘC cho FXMLLoader
     public ChangeNameController() {}
 
-    /**
-     * Inject các dependency sau khi FXMLLoader load xong
-     */
     public void init(Stage stage,
                      ControlClient controlClient,
                      ControlServer controlServer,
@@ -96,9 +93,6 @@ public class ChangeNameController {
         nameField.selectAll();
     }
 
-    /**
-     * ✅ showDialog bản đúng: truyền controlClient + controlServer để init()
-     */
     public static Optional<String> showDialog(
             Window owner,
             String initialName,

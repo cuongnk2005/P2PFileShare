@@ -238,6 +238,7 @@ public class ConnectedPeerController {
                 return rowName.equalsIgnoreCase(targetName);
             });
 
+
             if (removed) {
                 statusLabel.setText("Đối phương vừa xóa file: " + fileName);
                 fileTable.refresh();
@@ -246,6 +247,7 @@ public class ConnectedPeerController {
             }
         });
     }
+
 
     @FXML
     private void onDisconnect() {
