@@ -1,5 +1,6 @@
 package org.example.p2pfileshare.controller;
 
+import javafx.animation.PauseTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -9,11 +10,13 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.DirectoryChooser;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.network.control.ControlClient;
+import org.example.p2pfileshare.service.DownloadJob;
 import org.example.p2pfileshare.service.FileShareService;
 import org.example.p2pfileshare.util.AppConfig;
 
 import java.io.File;
 import java.nio.file.Path;
+import javafx.util.Duration;
 import java.util.List;
 import javafx.application.Platform;
 
@@ -34,7 +37,7 @@ public class ConnectedPeerController {
     @FXML private Button btnCancel;
 
     private final ObservableList<Row> rows = FXCollections.observableArrayList();
-
+    private DownloadJob currentJob;
     private PeerInfo peer;
     private ControlClient controlClient;
     private FileShareService fileShareService;
@@ -71,6 +74,51 @@ public class ConnectedPeerController {
 
         // nạp lần đầu
         reload();
+    }
+    @FXML
+    private void onPauseDownload() {
+        if (currentJob == null) {
+            statusLabel.setText("Chưa có tác vụ tải");
+            return;
+        }
+        currentJob.pause();
+        statusLabel.setText("Đã tạm dừng");
+        if (btnPause != null) btnPause.setDisable(true);      // Mở nút Pause
+        if (btnResume != null) btnResume.setDisable(false);     // Khóa nút Resume
+
+    }
+
+    @FXML
+    private void onResumeDownload() {
+        if (currentJob == null) {
+            statusLabel.setText("Chưa có tác vụ tải");
+            return;
+        }
+        currentJob.resume();
+        statusLabel.setText("Đang tiếp tục tải...");
+        if (btnPause != null) btnPause.setDisable(false);      // Mở nút Pause
+        if (btnResume != null) btnResume.setDisable(true);     // Khóa nút Resume
+
+    }
+
+    @FXML
+    private void onCancelDownload() {
+        if (currentJob == null) {
+            statusLabel.setText("Chưa có tác vụ tải");
+            return;
+        }
+        currentJob.pause();
+
+        PauseTransition delay = new PauseTransition(Duration.seconds(3));
+        delay.setOnFinished(e -> {
+            if (currentJob == null) return; // phòng trường hợp đã bị đổi job
+            currentJob.cancel(); // cancel sẽ hiệu lực ở checkpoint
+            currentJob = null;
+            progress.setProgress(0);
+            statusLabel.setText("Đã hủy tải");
+            resetButtons();
+        });
+        delay.play();
     }
 
     private void setupContextMenu() {
@@ -149,11 +197,15 @@ public class ConnectedPeerController {
     }
 
     private void downloadFile(Row fileRow) {
-        // Người dùng chọn THƯ MỤC lưu (nhớ thư mục lần trước)
+        // Nếu đang có job chạy, tránh tải chồng (tùy bạn cho phép nhiều job)
+        if (currentJob != null && (currentJob.getState() == DownloadJob.State.RUNNING || currentJob.getState() == DownloadJob.State.PAUSED)) {
+            new Alert(Alert.AlertType.INFORMATION, "Đang có file đang tải. Hãy Pause/Cancel trước!").showAndWait();
+            return;
+        }
+
         DirectoryChooser dirChooser = new DirectoryChooser();
         dirChooser.setTitle("Chọn thư mục lưu file");
 
-        // Load thư mục đã chọn lần trước nếu có
         final String KEY_LAST_DOWNLOAD_DIR = "last_download_dir";
         String last = AppConfig.load(KEY_LAST_DOWNLOAD_DIR);
         if (last != null) {
@@ -164,95 +216,48 @@ public class ConnectedPeerController {
         }
 
         File selectedDir = dirChooser.showDialog(peerNameLabel.getScene().getWindow());
-
-        // Nếu người dùng hủy chọn, không làm gì cả
         if (selectedDir == null) {
             statusLabel.setText("Đã hủy tải xuống");
             return;
         }
 
-        // Lưu lại thư mục vừa chọn để lần sau mở đúng chỗ
         AppConfig.save(KEY_LAST_DOWNLOAD_DIR, selectedDir.getAbsolutePath());
 
-        // Tạo đường dẫn file đích bên trong thư mục vừa chọn, giữ nguyên tên file gốc
         File selectedFile = new File(selectedDir, fileRow.name);
-        // progress bar
+        Path saveTo = selectedFile.toPath();
+
         progress.setProgress(0);
-        statusLabel.setText("Đang tải: " + fileRow.name);
+        statusLabel.setText("Đang chuẩn bị tải: " + fileRow.name);
+
+
+        //  service tạo job + chạy nền + trả về handle
+        currentJob = fileShareService.startDownload(
+                peer,
+                fileRow.relativePath,
+                saveTo,
+                // progressCallback: 0..1
+                p -> Platform.runLater(() -> {
+                    progress.setProgress(p);
+                    statusLabel.setText(String.format("Đang tải: %s (%.1f%%)", fileRow.name, p * 100));
+                }),
+                // statusCallback: text trạng thái
+                s -> Platform.runLater(() -> {
+                    // Nếu muốn: không ghi đè status khi đang hiển thị % thì bạn có thể refine logic
+                    statusLabel.setText(s);
+                    if ("Tải xong".equals(s) || s.startsWith("Hoàn tất")) {
+                        progress.setProgress(1.0);
+                    }
+                })
+        );
 
         if (btnDownload != null) btnDownload.setDisable(true); // Đang tải thì khóa nút tải
         if (btnPause != null) btnPause.setDisable(false);      // Mở nút Pause
         if (btnResume != null) btnResume.setDisable(true);     // Khóa nút Resume
         if (btnCancel != null) btnCancel.setDisable(false);    // Mở nút Cancel
 
-        Task<Boolean> task = new Task<>() {
-            @Override
-            protected Boolean call() {
-                Path saveTo = selectedFile.toPath();
 
-                // Truyền callback để cập nhật progress bar real-time
-                return fileShareService.download(peer, fileRow.relativePath, saveTo, progressValue -> {
-                    Platform.runLater(() -> {
-                        progress.setProgress(progressValue);
-                        statusLabel.setText(String.format("Đang tải: %s (%.1f%%)",
-                            fileRow.name, progressValue * 100));
-                    });
-                });
-            }
-        };
-
-        task.setOnSucceeded(e -> {
-            Boolean result = task.getValue();
-            boolean ok = (result != null && result);
-            progress.setProgress(ok ? 1.0 : 0.0);
-            statusLabel.setText(ok ? "Hoàn tất - Đã lưu tại: " + selectedFile.getAbsolutePath() : "Lỗi tải");
-
-            // Tải xong thì reset lại nút
-            resetButtons();
-        });
-
-        task.setOnFailed(e -> {
-            progress.setProgress(0);
-            statusLabel.setText("Lỗi tải: " + task.getException().getMessage());
-        });
-
-        new Thread(task, "download-remote-file").start();
     }
 
-    @FXML
-    private void onPauseDownload() {
-        // Chỉ là Demo giao diện
-        Alert alert = new Alert(Alert.AlertType.INFORMATION, "Chức năng Tạm dừng đang được phát triển!");
-        alert.setHeaderText("Tính năng Demo");
-        alert.showAndWait();
-
-        // Giả vờ disable nút này để nhìn giống thật
-        btnPause.setDisable(true);
-        btnResume.setDisable(false);
-        statusLabel.setText("Đang tạm dừng (Demo)...");
-    }
-
-    @FXML
-    private void onResumeDownload() {
-        // Chỉ là Demo giao diện
-        Alert alert = new Alert(Alert.AlertType.INFORMATION, "Chức năng Tiếp tục đang được phát triển!");
-        alert.setHeaderText("Tính năng Demo");
-        alert.showAndWait();
-
-        // Giả vờ resume
-        btnPause.setDisable(false);
-        btnResume.setDisable(true);
-        statusLabel.setText("Đang tải tiếp (Demo)...");
-    }
-
-    @FXML
-    private void onCancelDownload() {
-        // Chỉ là Demo giao diện
-        if (btnDownload.isDisable()) { // Đang tải mới cho hủy
-            Alert alert = new Alert(Alert.AlertType.WARNING, "Bạn có chắc muốn hủy không? (Chức năng này chưa hoạt động thật)");
-            alert.showAndWait();
-        }
-    }
 
     // Hàm reset trạng thái nút về ban đầu
     private void resetButtons() {
@@ -464,6 +469,13 @@ public class ConnectedPeerController {
         } else {
             return String.format("%.2f KB", bytes / KB);
         }
+    }
+    public void updatePeerDisplayName(String newName) {
+        if (newName == null) return;
+        Platform.runLater(() -> {
+            peerNameLabel.setText(newName + " (" + peer.getIp() + ")");
+        });
+
     }
 
 }

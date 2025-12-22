@@ -37,7 +37,8 @@ public class PeerTabController {
     private ControlServer controlServer;
     // map lưu nhiều controller, key = peerId
     private final Map<String, ConnectedPeerController> connectedControllers = new HashMap<>();
-
+   // map lưu tab đang mở để đổi tên hoặc xoá tab khi cần
+    private final Map<String, Tab> connectedTabs = new HashMap<>();
     @FXML private TableView<PeerInfo> peerTable;
     @FXML private TableColumn<PeerInfo, String> colPeerName;
     @FXML private TableColumn<PeerInfo, String> colPeerIp;
@@ -80,6 +81,7 @@ public class PeerTabController {
                 });
             });
         }
+        controlServer.setOnRenameTab(this::renameConnectedTab);
 
     }
 
@@ -245,13 +247,17 @@ public class PeerTabController {
             Tab tab = new Tab("Kết nối: " + peer.getName());
             tab.setContent(content);
             tab.setClosable(true);
-
+            // lưu tab vào map để có thể đổi tên sau này
+            connectedTabs.put(peer.getPeerId(), tab);
             // đăng ký controller theo peerId để có thể cập nhật sau này
             connectedControllers.put(peer.getPeerId(), controller);
 
             // khi tab đóng thì xoá mapping
-            tab.setOnClosed(ev -> connectedControllers.remove(peer.getPeerId()));
-
+            tab.setOnClosed(ev -> {
+                connectedControllers.remove(peer.getPeerId());
+                connectedTabs.remove(peer.getPeerId());
+            });
+            connectedTabs.remove(peer.getPeerId());
             // tìm TabPane từ một control trong scene
             TabPane tabPane = mainTabPane;
             if (tabPane == null) {
@@ -455,6 +461,19 @@ public class PeerTabController {
             }
 
             if (peerTable != null) peerTable.refresh();
+        });
+    }
+    public void renameConnectedTab(String peerId, String newName) {
+        Platform.runLater(() -> {
+            Tab tab = connectedTabs.get(peerId);
+            if (tab != null) {
+                tab.setText("Kết nối: " + newName);
+            }
+
+            ConnectedPeerController ctrl = connectedControllers.get(peerId);
+            if (ctrl != null) {
+                ctrl.updatePeerDisplayName(newName);
+            }
         });
     }
 }

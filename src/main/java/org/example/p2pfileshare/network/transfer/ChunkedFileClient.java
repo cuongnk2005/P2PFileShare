@@ -80,7 +80,7 @@ public class ChunkedFileClient {
      * Download: Chunk + Resume + Integrity (resume thật sự)
      */
     public static boolean downloadFile(String host, int port, String fileName, Path saveTo,
-                                       Consumer<Double> progressCallback) throws IOException {
+                                       Consumer<Double> progressCallback, DownloadControl control) throws IOException {
 
         // Paths for resume
         // địa chỉ file tạm khi đang tải
@@ -124,9 +124,16 @@ public class ChunkedFileClient {
 
         // 6) Download missing chunks
         for (int i = 0; i < meta.getTotalChunks(); i++) {
+            try {
+                if (control != null) control.checkpoint();
+            } catch (InterruptedException e) {
+                // ✅ CANCEL: dọn file tạm
+                cleanupOnCancel(partFile, bitmapFile, metaFile);
+                return false;
+            }
             if (progress.isChunkComplete(i)) continue;
 
-            boolean ok = downloadChunk(host, port, fileName, i, meta, partFile);
+            boolean ok = downloadChunk(host, port, fileName, i, meta, partFile, control);
             if (!ok) {
                 System.err.println("[ChunkedFileClient] Failed to download chunk " + i);
                 return false;
@@ -141,6 +148,12 @@ public class ChunkedFileClient {
         }
 
         // 7) Verify whole file hash (final integrity)
+        try {
+            if (control != null) control.checkpoint(); // ✅ trước khi verify
+        } catch (InterruptedException e) {
+            cleanupOnCancel(partFile, bitmapFile, metaFile);
+            return false;
+        }
         String actualHash = FileHashUtil.sha256(partFile);
         if (!actualHash.equals(meta.getFileSha256())) {
             System.err.println("[ChunkedFileClient] File hash mismatch! expected=" + meta.getFileSha256()
@@ -172,77 +185,73 @@ public class ChunkedFileClient {
      *   - reason (UTF)
      */
     private static boolean downloadChunk(String host, int port, String fileName, int chunkIndex,
-                                         FileMetadata meta, Path partFile) {
+                                         FileMetadata meta, Path partFile,
+                                         DownloadControl control) {
 
         for (int retry = 1; retry <= MAX_RETRIES; retry++) {
-            try (Socket socket = new Socket(host, port)) {
-                socket.setSoTimeout(SOCKET_TIMEOUT_MS);
+            try {
+                // checkpoint trước khi request (đúng yêu cầu)
+                if (control != null) control.checkpoint();
 
-                try (DataInputStream in = new DataInputStream(socket.getInputStream());
-                     DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
+                try (Socket socket = new Socket(host, port)) {
+                    socket.setSoTimeout(SOCKET_TIMEOUT_MS);
 
-                    // Request chunk
-                    String request = FileTransferProtocol.buildChunkRequest(fileName, chunkIndex);
-                    out.writeUTF(request);
-                    out.flush();
+                    try (DataInputStream in = new DataInputStream(socket.getInputStream());
+                         DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
 
-                    // Read response type
-                    String type = in.readUTF();
-                    if (type == null) {
-                        System.err.println("[ChunkedFileClient] Chunk " + chunkIndex + ": no response type");
-                        continue;
+                        // checkpoint trước khi request (lần nữa cũng OK)
+                        if (control != null) control.checkpoint();
+
+                        String request = FileTransferProtocol.buildChunkRequest(fileName, chunkIndex);
+                        out.writeUTF(request);
+                        out.flush();
+
+                        String type = in.readUTF();
+                        if (type == null) continue;
+
+                        if ("ERROR".equals(type)) {
+                            String reason = in.readUTF();
+                            System.err.println("[ChunkedFileClient] Chunk " + chunkIndex + " error: " + reason);
+                            continue;
+                        }
+
+                        if (!FileTransferProtocol.CHUNK_DATA.equals(type)) continue;
+
+                        int receivedIndex = in.readInt();
+                        int dataLen = in.readInt();
+                        String expectedHash = in.readUTF();
+
+                        if (receivedIndex != chunkIndex) continue;
+                        if (dataLen < 0 || dataLen > meta.getChunkSize()) continue;
+
+                        //  checkpoint trước khi readFully (đúng yêu cầu)
+                        if (control != null) control.checkpoint();
+
+                        byte[] chunkData = new byte[dataLen];
+                        in.readFully(chunkData);
+
+                        String actualHash = FileHashUtil.sha256(chunkData);
+                        if (!actualHash.equals(expectedHash)) {
+                            System.err.println("[ChunkedFileClient] Chunk " + chunkIndex + " hash mismatch (retry "
+                                    + retry + "/" + MAX_RETRIES + ")");
+                            continue;
+                        }
+
+                        // ✅ checkpoint trước khi write (đúng yêu cầu)
+                        if (control != null) control.checkpoint();
+
+                        long offset = (long) chunkIndex * meta.getChunkSize();
+                        try (RandomAccessFile raf = new RandomAccessFile(partFile.toFile(), "rw")) {
+                            raf.seek(offset);
+                            raf.write(chunkData);
+                        }
+
+                        return true;
                     }
-
-                    if ("ERROR".equals(type)) {
-                        String reason = in.readUTF();
-                        System.err.println("[ChunkedFileClient] Chunk " + chunkIndex + " error: " + reason);
-                        continue;
-                    }
-
-                    if (!FileTransferProtocol.CHUNK_DATA.equals(type)) {
-                        System.err.println("[ChunkedFileClient] Chunk " + chunkIndex + " unexpected type: " + type);
-                        continue;
-                    }
-
-                    // Read chunk fields
-                    int receivedIndex = in.readInt();
-                    int dataLen = in.readInt();
-                    String expectedHash = in.readUTF();
-
-                    if (receivedIndex != chunkIndex) {
-                        System.err.println("[ChunkedFileClient] Chunk index mismatch: expected=" + chunkIndex + " got=" + receivedIndex);
-                        continue;
-                    }
-
-                    if (dataLen < 0 || dataLen > meta.getChunkSize()) {
-                        System.err.println("[ChunkedFileClient] Invalid dataLen=" + dataLen + " for chunk " + chunkIndex);
-                        continue;
-                    }
-
-                    // Read data
-                    byte[] chunkData = new byte[dataLen];
-                    in.readFully(chunkData);
-
-                    // Verify hash
-                    String actualHash = FileHashUtil.sha256(chunkData);
-                    if (!actualHash.equals(expectedHash)) {
-                        System.err.println("[ChunkedFileClient] Chunk " + chunkIndex + " hash mismatch (retry "
-                                + retry + "/" + MAX_RETRIES + ")");
-                        continue;
-                    }
-
-                    // Write to correct offset
-                    long offset = (long) chunkIndex * meta.getChunkSize();
-                    try (RandomAccessFile raf = new RandomAccessFile(partFile.toFile(), "rw")) {
-                        raf.seek(offset);
-                        raf.write(chunkData);
-                    }
-
-                    System.out.println("[ChunkedFileClient] Chunk " + chunkIndex + " OK (" + dataLen + " bytes)");
-                    return true;
-
                 }
-
+            } catch (InterruptedException e) {
+                // cancel/pause: pause sẽ không ném exception, cancel sẽ ném -> ta coi như fail
+                return false;
             } catch (IOException e) {
                 System.err.println("[ChunkedFileClient] Chunk " + chunkIndex + " error (retry "
                         + retry + "/" + MAX_RETRIES + "): " + e.getMessage());
@@ -311,4 +320,11 @@ public class ChunkedFileClient {
             return false;
         }
     }
+    private static void cleanupOnCancel(Path partFile, Path bitmapFile, Path metaFile) {
+        System.out.println("[ChunkedFileClient] Cancel -> cleanup temp files");
+        safeDelete(partFile);
+        safeDelete(bitmapFile);
+        safeDelete(metaFile);
+    }
+
 }

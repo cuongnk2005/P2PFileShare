@@ -6,7 +6,8 @@ import org.example.p2pfileshare.model.SharedFileLocal;
 import org.example.p2pfileshare.network.transfer.ChunkedFileClient;
 import org.example.p2pfileshare.network.transfer.ChunkedFileServer;
 import org.example.p2pfileshare.util.DownloadHistoryManager;
-
+import org.example.p2pfileshare.service.DownloadJob;
+import java.util.function.Consumer;
 import java.io.File;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -72,49 +73,49 @@ public class FileShareService {
     }
 
     // tải file từ peer khác (client)
-    public boolean download(PeerInfo peer, String relativePath, Path saveTo,
-                           java.util.function.Consumer<Double> progressCallback) {
-        boolean success = false;
-        try {
-            success = ChunkedFileClient.downloadFile(
-                    peer.getIp(),
-                    peer.getFileServerPort(),
-                    relativePath,
-                    saveTo,
-                    progressCallback
-            );
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-
-        System.out.println("Trạng thái download: " + success);
-
-        if (success) {
-            try {
-                // Lưu lịch sử tải xuống
-                DownloadHistory history = new DownloadHistory(
-                        saveTo.getFileName().toString(),
-                        saveTo.toAbsolutePath().toString(),
-                        peer.getName(),
-                        peer.getIp(),
-                        LocalDateTime.now()
-                );
-                historyService.addHistory(history);
-                System.out.println("✓ Đã lưu lịch sử tải xuống: " + saveTo.getFileName());
-            } catch (Exception e) {
-                System.err.println("✗ Lỗi khi lưu lịch sử tải xuống:");
-                e.printStackTrace();
-            }
-        }
-
-        return success;
-    }
+//    public boolean download(PeerInfo peer, String relativePath, Path saveTo,
+//                           java.util.function.Consumer<Double> progressCallback) {
+//        boolean success = false;
+//        try {
+//            success = ChunkedFileClient.downloadFile(
+//                    peer.getIp(),
+//                    peer.getFileServerPort(),
+//                    relativePath,
+//                    saveTo,
+//                    progressCallback
+//            );
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return false;
+//        }
+//
+//        System.out.println("Trạng thái download: " + success);
+//
+//        if (success) {
+//            try {
+//                // Lưu lịch sử tải xuống
+//                DownloadHistory history = new DownloadHistory(
+//                        saveTo.getFileName().toString(),
+//                        saveTo.toAbsolutePath().toString(),
+//                        peer.getName(),
+//                        peer.getIp(),
+//                        LocalDateTime.now()
+//                );
+//                historyService.addHistory(history);
+//                System.out.println("✓ Đã lưu lịch sử tải xuống: " + saveTo.getFileName());
+//            } catch (Exception e) {
+//                System.err.println("✗ Lỗi khi lưu lịch sử tải xuống:");
+//                e.printStackTrace();
+//            }
+//        }
+//
+//        return success;
+//    }
 
     // Overload cũ để tương thích
-    public boolean download(PeerInfo peer, String relativePath, Path saveTo) {
-        return download(peer, relativePath, saveTo, null);
-    }
+//    public boolean download(PeerInfo peer, String relativePath, Path saveTo) {
+//        return download(peer, relativePath, saveTo, null);
+//    }
 
     // lưu lịch sử download
     public List<DownloadHistory> listDownloadHistory() {
@@ -193,6 +194,65 @@ public class FileShareService {
 
     public String getMyDisplayName() {
         return myDisplayName;
+    }
+    public DownloadJob startDownload(PeerInfo peer, String relativePath, Path saveTo,
+                                     Consumer<Double> progressCallback,
+                                     Consumer<String> statusCallback) {
+
+        // Tạo Job: service chỉ tạo & trả về, UI giữ job để pause/resume/cancel
+        DownloadJob job = new DownloadJob(
+                peer.getIp(),
+                peer.getFileServerPort(),
+                relativePath,
+                saveTo,
+                p -> {
+                    if (progressCallback != null) progressCallback.accept(p);
+                },
+                state -> {
+                    // Map state -> status text
+                    if (statusCallback != null) {
+                        switch (state) {
+                            case NEW -> statusCallback.accept("Đang chuẩn bị...");
+                            case RUNNING -> statusCallback.accept("Đang tải...");
+                            case PAUSED -> statusCallback.accept("Đã tạm dừng");
+                            case CANCELLED -> statusCallback.accept("Đã hủy tải");
+                            case COMPLETED -> statusCallback.accept("Tải xong");
+                            case FAILED -> statusCallback.accept("Tải thất bại");
+                        }
+                    }
+
+                    // Nếu COMPLETED thì lưu history ngay tại service
+                    if (state == DownloadJob.State.COMPLETED) {
+                        try {
+                            DownloadHistory history = new DownloadHistory(
+                                    saveTo.getFileName().toString(),
+                                    saveTo.toAbsolutePath().toString(),
+                                    peer.getName(),
+                                    peer.getIp(),
+                                    LocalDateTime.now()
+                            );
+                            historyService.addHistory(history);
+
+                            if (statusCallback != null) {
+                                statusCallback.accept("✓ Đã lưu lịch sử tải xuống");
+                            }
+                        } catch (Exception e) {
+                            System.err.println("✗ Lỗi khi lưu lịch sử tải xuống:");
+                            e.printStackTrace();
+                        }
+                    }
+                },
+                err -> {
+                    // lỗi kỹ thuật (IO, timeout...) -> statusCallback
+                    if (statusCallback != null) {
+                        statusCallback.accept("Lỗi: " + err.getMessage());
+                    }
+                }
+        );
+
+        // Service KHÔNG block: chỉ start thread và trả job về cho UI
+        job.start();
+        return job;
     }
 
 }
