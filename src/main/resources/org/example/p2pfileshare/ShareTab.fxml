@@ -41,7 +41,7 @@
                 <TableColumn fx:id="colSharedSize" text="Kích thước" prefWidth="100"/>
                 <TableColumn fx:id="colSharedSubject" text="Môn học" prefWidth="120"/>
                 <TableColumn fx:id="colSharedTags" text="Tag" prefWidth="150"/>
-                <TableColumn fx:id="colSharedVisibility" text="Chia sẻ?" prefWidth="80"/>
+                <TableColumn fx:id="colSharedVisibility" text="Chia sẻ" prefWidth="80"/>
             </columns>
         </TableView>
     </center>

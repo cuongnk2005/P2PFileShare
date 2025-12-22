@@ -7,9 +7,14 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.AnchorPane;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.network.control.ControlClient;
 import org.example.p2pfileshare.network.control.ControlServer;
@@ -119,14 +124,6 @@ public class PeerTabController {
 
     }
 
-    private void showMsg(String msg) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Thông báo");
-        alert.setHeaderText(null);
-        alert.setContentText(msg);
-        alert.showAndWait();
-    }
-
     // QUÉT PEER
     @FXML
     private void onScanPeers() {
@@ -184,7 +181,7 @@ public class PeerTabController {
     private void onConnectPeer() {
         PeerInfo peer = peerTable.getSelectionModel().getSelectedItem();
         if (peer == null) {
-            show("Chưa chọn peer!");
+            new Alert(Alert.AlertType.WARNING, "Vui lòng chọn peer để kết nối!").showAndWait();
             return;
         }
 
@@ -209,6 +206,7 @@ public class PeerTabController {
             } else {
                 peer.setConnectionState(PeerInfo.ConnectionState.REJECTED);
                 peerStatusLabel.setText("Peer từ chối hoặc không phản hồi");
+                showConfirmDialog("Kết nối thất bại", "Peer từ chối kết nối", "Vui lòng thử lại sau hoặc liên hệ người dùng đó.");
             }
             peerTable.refresh();
         });
@@ -281,7 +279,7 @@ public class PeerTabController {
     private void onDisconnectPeer() {
         PeerInfo peer = peerTable.getSelectionModel().getSelectedItem();
         if (peer == null) {
-            show("Hãy chọn peer trước!");
+            new Alert(Alert.AlertType.WARNING, "Hãy chọn peer trước!").showAndWait();
             return;
         }
 
@@ -292,6 +290,14 @@ public class PeerTabController {
             peerStatusLabel.setText("chưa kết nối đến peer này");
             return;
         }
+
+        boolean confirmed = showConfirmDialog(
+                "🔌 Ngắt kết nối",
+                "Ngắt kết nối với " + peer.getName() + "?",
+                "Hành động này sẽ đóng tab chia sẻ file và dừng mọi tải xuống."
+        );
+
+        if (!confirmed) return; // Nếu chọn Hủy thì thoát
 
         peerStatusLabel.setText("Đang ngắt kết nối...");
         peer.setConnectionState(PeerInfo.ConnectionState.PENDING);
@@ -320,10 +326,11 @@ public class PeerTabController {
                 }
 
                 peerTable.refresh();
+                showSuccessDialog("Thành công", "Đã ngắt kết nối với " + peer.getName());
             } else {
                 peer.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
                 peerStatusLabel.setText("Ngắt kết nối thất bại");
-                new Alert(Alert.AlertType.WARNING, "Không thể gửi yêu cầu ngắt kết nối tới peer").showAndWait();
+                showConfirmDialog("Lỗi", "Không thể ngắt kết nối", "Peer không phản hồi yêu cầu.");
                 peerTable.refresh();
             }
         });
@@ -331,11 +338,68 @@ public class PeerTabController {
         task.setOnFailed(e -> {
             peer.setConnectionState(PeerInfo.ConnectionState.CONNECTED);
             peerStatusLabel.setText("Lỗi khi ngắt kết nối");
-            new Alert(Alert.AlertType.ERROR, "Lỗi khi thực hiện ngắt kết nối: " + task.getException()).showAndWait();
             peerTable.refresh();
         });
 
         new Thread(task, "disconnect-peer").start();
+    }
+
+    private boolean showConfirmDialog(String title, String header, String content) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            Parent page = loader.load();
+
+            Stage dialogStage = new Stage();
+            dialogStage.initStyle(StageStyle.UNDECORATED);
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
+
+            if (peerTable.getScene() != null) {
+                dialogStage.initOwner(peerTable.getScene().getWindow());
+            }
+            dialogStage.setScene(new Scene(page));
+
+            ConfirmationController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+
+            // Nội dung & Style
+            controller.setContent(title, header, content, "Đồng ý");
+            controller.setStyleDanger(); // Màu đỏ
+
+            dialogStage.showAndWait();
+            return controller.isConfirmed();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private void showSuccessDialog(String header, String content) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            Parent page = loader.load();
+
+            Stage dialogStage = new Stage();
+            dialogStage.initStyle(StageStyle.UNDECORATED);
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
+
+            if (peerTable.getScene() != null) {
+                dialogStage.initOwner(peerTable.getScene().getWindow());
+            }
+            dialogStage.setScene(new Scene(page));
+
+            ConfirmationController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+
+            // Nội dung & Style
+            controller.setContent("Thông báo", header, content, "Đóng");
+            controller.setStyleSuccess(); // Màu xanh
+
+            dialogStage.showAndWait();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void routeSystemMessage(String senderPeerId, String message) {
@@ -356,10 +420,6 @@ public class PeerTabController {
         return peerList.stream()
                 .filter(p -> p.getConnectionState() == PeerInfo.ConnectionState.CONNECTED)
                 .collect(Collectors.toList());
-    }
-
-    private void show(String msg) {
-        new Alert(Alert.AlertType.INFORMATION, msg).showAndWait();
     }
 
     // gọi khi remote peer bị ngắt (hoặc khi muốn đặt trạng thái peer về "chưa kết nối")

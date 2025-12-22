@@ -313,6 +313,18 @@ public class ConnectedPeerController {
             return;
         }
 
+        // hiển thị dialog hỏi xác nhận
+        boolean confirmed = showConfirmDialog(
+                "🔌 Ngắt kết nối",
+                "Bạn có chắc muốn ngắt kết nối với " + peer.getName() + "?",
+                "Hành động này sẽ dừng mọi tiến trình tải file đang chạy."
+        );
+
+        // nếu hủy hoặc tắt thì thoát luôn
+        if (!confirmed) {
+            return;
+        }
+
         // Nếu chưa kết nối thì chỉ cập nhật UI
         if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
             statusLabel.setText("Đã ngắt kết nối");
@@ -365,6 +377,66 @@ public class ConnectedPeerController {
         });
 
         new Thread(task, "disconnect-from-connected-tab").start();
+    }
+
+    // custom dialog
+    private boolean showConfirmDialog(String title, String header, String content) {
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                    getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            javafx.scene.Parent page = loader.load();
+
+            javafx.stage.Stage dialogStage = new javafx.stage.Stage();
+            dialogStage.initStyle(javafx.stage.StageStyle.UNDECORATED);
+            dialogStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+            // Lấy window hiện tại làm chủ để hiện dialog ở giữa
+            if (peerNameLabel.getScene() != null) {
+                dialogStage.initOwner(peerNameLabel.getScene().getWindow());
+            }
+            dialogStage.setScene(new javafx.scene.Scene(page));
+
+            ConfirmationController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+
+            // Thiết lập nội dung
+            controller.setContent(title, header, content, "Ngắt kết nối");
+            controller.setStyleDanger(); // Màu đỏ cảnh báo
+
+            dialogStage.showAndWait();
+            return controller.isConfirmed();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private void showSuccessDialog(String header, String content) {
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                    getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            javafx.scene.Parent page = loader.load();
+
+            javafx.stage.Stage dialogStage = new javafx.stage.Stage();
+            dialogStage.initStyle(javafx.stage.StageStyle.UNDECORATED);
+            dialogStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+            if (peerNameLabel.getScene() != null) {
+                dialogStage.initOwner(peerNameLabel.getScene().getWindow());
+            }
+            dialogStage.setScene(new javafx.scene.Scene(page));
+
+            ConfirmationController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+            controller.setContent("Thông báo", header, content, "Đóng");
+            controller.setStyleSuccess(); // Màu xanh thành công
+
+            dialogStage.showAndWait();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     // Row model cho TableView
