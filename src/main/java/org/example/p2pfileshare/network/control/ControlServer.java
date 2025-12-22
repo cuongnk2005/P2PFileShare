@@ -191,16 +191,21 @@ public class ControlServer {
                     String fromPeer = msg.fromPeer; // người yêu cầu ngắt (mình) hoặc client
                     String toPeer   = msg.toPeer;   // người bị ngắt
                     acceptedPeers.remove(fromPeer); //remove(toPeer)
+                    // gọi cập nhật lại trạng thái của peertab
                     if (onUpdatePeerName != null) {
                         onUpdatePeerName.run();
                     }
-                    if (onDisconnectNotify != null) {
-                        try {
-                            onDisconnectNotify.accept(msg);
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
+                    //
+                    if (onPeerAccepted != null) {
+                        onPeerAccepted.run();
                     }
+//                    if (onDisconnectNotify != null) {
+//                        try {
+//                            onDisconnectNotify.accept(msg);
+//                        } catch (Exception ex) {
+//                            ex.printStackTrace();
+//                        }
+//                    }
                     writer.println(ControlProtocol.build(ControlProtocol.DISCONNECT_NOTIFY,
                             msg.toPeer, msg.fromPeer, "Disconnected"));
                     System.out.println("[ControlServer] Disconnected: " + fromPeer);
@@ -236,11 +241,13 @@ public class ControlServer {
         t.setDaemon(true);
         t.start();
     }
-
+    // build payload danh sách file được chia sẻ theo dạng 2A.docx	2A.docx	27084<NL>AI4life (2).docx	AI4life (2).docx	933162<NL>
     private String buildFileListPayload() {
         if (fileShareService == null) return "";
+        // liệt kê danh sách file được chia sẻ
         List<org.example.p2pfileshare.model.SharedFileLocal> list = fileShareService.listSharedFiles();
         StringBuilder sb = new StringBuilder();
+
         for (var f : list) {
             // Encode tab-safe by replacing tabs/newlines
             String name = safe(f.getFileName());

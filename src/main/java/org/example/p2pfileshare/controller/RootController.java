@@ -304,10 +304,19 @@ public class RootController {
 
             // 1) Lấy danh sách peer đang CONNECTED (bạn cần hàm này ở PeerService)
             var peers = peerService != null ? peerService.getPeersByIds(controlServer.getConnectedPeers()) : java.util.List.<PeerInfo>of();
-
+            var peersListConnected = peerService != null ? peerService.getPeersByIds(controlClient.getPeerIdList()) : java.util.List.<PeerInfo>of();
             // 2) Gửi notify cho từng peer (chạy nền để không block UI)
             new Thread(() -> {
                 for (PeerInfo p : peers) {
+                    try {
+                        // Bạn cần peer.getIp(), peer.getControlPort(), peer.getPeerId()
+
+                        controlServer.disconnectPeer(p, myPeerId);
+                    } catch (Exception e) {
+                        System.out.println("[Shutdown] Failed notify " + p.getPeerId() + ": " + e.getMessage());
+                    }
+                }
+                for (PeerInfo p : peersListConnected) {
                     try {
                         // Bạn cần peer.getIp(), peer.getControlPort(), peer.getPeerId()
                         controlClient.sendDisconnectRequest(p);
@@ -325,6 +334,8 @@ public class RootController {
                     try {
                         mainTabPane.getScene().getWindow().hide();
                     } catch (Exception ignored) {}
+                    Platform.exit();     // dừng JavaFX runtime
+                    System.exit(0);
                 });
             }, "shutdown-thread").start();
 
@@ -333,6 +344,7 @@ public class RootController {
             // fallback: cứ đóng luôn
             mainTabPane.getScene().getWindow().hide();
         }
+
     }
 
 }

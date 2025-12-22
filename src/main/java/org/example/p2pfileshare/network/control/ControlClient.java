@@ -19,7 +19,7 @@ public class ControlClient {
 
     private final String myPeerId;
     private String myDisplayName;
-
+    private List<String> peerIdList = new ArrayList<>();
     public ControlClient(String myPeerId, String myDisplayName) {
         this.myPeerId = myPeerId;
         this.myDisplayName = myDisplayName;
@@ -87,6 +87,7 @@ public class ControlClient {
 
             if (ControlProtocol.CONNECT_ACCEPT.equals(parsed.command)) {
                 System.out.println("[ControlClient] CONNECT_ACCEPT from " + parsed.fromPeer);
+                this.peerIdList.add(parsed.fromPeer);
                 return true;
 
             } else if (ControlProtocol.CONNECT_REJECT.equals(parsed.command)) {
@@ -315,6 +316,9 @@ public class ControlClient {
         }
 
         System.out.println("[ControlClient] broadcastUpdateName done. ok=" + ok + ", fail=" + fail);
+    }
+    public List<String> getPeerIdList() {
+        return peerIdList;
     }
 
 }
