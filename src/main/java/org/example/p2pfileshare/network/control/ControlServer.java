@@ -18,7 +18,7 @@ public class ControlServer {
     private final int port;
     private volatile boolean running = false;
     // NEW: Lưu PeerInfo theo peerId (chỉ peer đã ACCEPT)
-
+    private java.util.function.BiConsumer<String, String> onRenameTab;
 
     // Đã chấp nhận kết nối từ peerId nào
     private final Set<String> acceptedPeers = ConcurrentHashMap.newKeySet();
@@ -195,22 +195,16 @@ public class ControlServer {
                     if (onUpdatePeerName != null) {
                         onUpdatePeerName.run();
                     }
-                    //
+                    // gọi cập nhật lại trạng thái của incoming connection, peer client gọi đến peer server
                     if (onPeerAccepted != null) {
                         onPeerAccepted.run();
                     }
-//                    if (onDisconnectNotify != null) {
-//                        try {
-//                            onDisconnectNotify.accept(msg);
-//                        } catch (Exception ex) {
-//                            ex.printStackTrace();
-//                        }
-//                    }
+//                // Gửi phản hồi DISCONNECT_NOTIFY cho client bt là ok đã ngắt
                     writer.println(ControlProtocol.build(ControlProtocol.DISCONNECT_NOTIFY,
                             msg.toPeer, msg.fromPeer, "Disconnected"));
                     System.out.println("[ControlServer] Disconnected: " + fromPeer);
                 }
-                // NEW: xử lý thông báo DISCONNECT_NOTIFY nhận từ remote
+                // NEW: xử lý thông báo DISCONNECT_NOTIFY nhận từ peer sever
                 else if (ControlProtocol.DISCONNECT_NOTIFY.equals(msg.command)) {
                     System.out.println("[ControlServer] Received DISCONNECT_NOTIFY from " + msg.fromPeer
                             + " note=" + msg.note);
@@ -223,13 +217,17 @@ public class ControlServer {
                         }
                     }
                     // không cần gửi phản hồi
-                    return;
                 }
-                else if (ControlProtocol.UPDATE_NAME.equals(msg.command)) {
+                //server gửi gói tin và server ở client nhận hàm này để cập nhật tên peer
+                else if (ControlProtocol.UPDATE_NAMESERVER.equals(msg.command)) {
+                    // to peer ở đây t co cai là name mới
                     System.out.println("[ControlServer] Received UPDATE_NAME from " + msg.fromPeer +"va name mới"+ msg.toPeer);
 
                     if (onUpdatePeerName != null) {
                         onUpdatePeerName.run();
+                    }
+                    if (onRenameTab != null) {
+                        onRenameTab.accept(msg.fromPeer, "Kết nối:" + msg.toPeer);
                     }
                 }
 
@@ -274,6 +272,9 @@ public class ControlServer {
     }
     public void setpeerUpdateName(Runnable callback) {
         this.onUpdatePeerName = callback;
+    }
+    public void setOnRenameTab(java.util.function.BiConsumer<String, String> cb) {
+        this.onRenameTab = cb;
     }
     // NEW: setter để UI đăng ký listener khi nhận DISCONNECT_NOTIFY
     public void setOnDisconnectNotify(Consumer<ControlProtocol.ParsedMessage> callback) {
