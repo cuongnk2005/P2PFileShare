@@ -255,7 +255,10 @@ public class PeerTabController {
             connectedControllers.put(peer.getPeerId(), controller);
 
             // khi tab đóng thì xoá mapping
-            tab.setOnClosed(ev -> connectedControllers.remove(peer.getPeerId()));
+            tab.setOnClosed(ev -> {
+                connectedControllers.remove(peer.getPeerId());
+                connectedTabs.remove(peer.getPeerId());
+            });
             connectedTabs.remove(peer.getPeerId());
             // tìm TabPane từ một control trong scene
             TabPane tabPane = mainTabPane;
@@ -400,11 +403,17 @@ public class PeerTabController {
             if (peerTable != null) peerTable.refresh();
         });
     }
-    public void renameConnectedTab(String peerId, String newTitle) {
+    public void renameConnectedTab(String peerId, String newName) {
         Platform.runLater(() -> {
-            System.out.println("[");
             Tab tab = connectedTabs.get(peerId);
-            if (tab != null) tab.setText(newTitle);
+            if (tab != null) {
+                tab.setText("Kết nối: " + newName);
+            }
+
+            ConnectedPeerController ctrl = connectedControllers.get(peerId);
+            if (ctrl != null) {
+                ctrl.updatePeerDisplayName(newName);
+            }
         });
     }
 }

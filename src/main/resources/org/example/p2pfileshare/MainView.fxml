@@ -35,39 +35,38 @@
     </top>
 
     <center>
-        <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE" style="-fx-background-color: #f8f9fa;">
+        <TabPane fx:id="mainTabPane"
+                 tabClosingPolicy="ALL_TABS"
+                 style="-fx-background-color: #f8f9fa;">
+
             <tabs>
-                <Tab text="🌐 Mạng LAN">
+                <!-- TAB GỐC: KHÔNG CÓ DẤU X -->
+                <Tab text="🌐 Mạng LAN" closable="false">
                     <content>
                         <fx:include source="PeerTab.fxml" fx:id="peerTab" />
                     </content>
                 </Tab>
 
-                <Tab text="📂 Tài liệu chia sẻ">
+                <Tab text="📂 Tài liệu chia sẻ" closable="false">
                     <content>
                         <fx:include source="ShareTab.fxml" fx:id="shareTab" />
                     </content>
                 </Tab>
 
-<!--                <Tab text="🔍 Tìm kiếm">-->
-<!--                    <content>-->
-<!--                        <fx:include source="SearchTab.fxml" fx:id="searchTab" />-->
-<!--                    </content>-->
-<!--                </Tab>-->
-
-                <Tab text="🕒 Lịch sử tải">
+                <Tab text="🕒 Lịch sử tải" closable="false">
                     <content>
                         <fx:include source="HistoryTab.fxml" fx:id="historyTab" />
                     </content>
                 </Tab>
 
-                <Tab text="📡 Kết nối đến">
+                <Tab text="📡 Kết nối đến" closable="false">
                     <content>
                         <fx:include source="IncomingConnectionTab.fxml" fx:id="incomingConnectionTab" />
                     </content>
                 </Tab>
             </tabs>
         </TabPane>
+
     </center>
 
     <bottom>

@@ -403,6 +403,7 @@ public class ConnectedPeerController {
         Platform.runLater(() -> {
             peerNameLabel.setText(newName + " (" + peer.getIp() + ")");
         });
+
     }
 
 }

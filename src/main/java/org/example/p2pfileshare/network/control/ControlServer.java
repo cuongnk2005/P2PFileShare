@@ -227,7 +227,7 @@ public class ControlServer {
                         onUpdatePeerName.run();
                     }
                     if (onRenameTab != null) {
-                        onRenameTab.accept(msg.fromPeer, "Kết nối:" + msg.toPeer);
+                        onRenameTab.accept(msg.fromPeer, msg.toPeer);
                     }
                 }
 
