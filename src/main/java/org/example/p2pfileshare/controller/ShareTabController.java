@@ -3,10 +3,15 @@ package org.example.p2pfileshare.controller;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import org.example.p2pfileshare.model.SharedFileLocal;
 import org.example.p2pfileshare.network.control.ControlClient;
 import org.example.p2pfileshare.service.FileShareService;
@@ -16,7 +21,7 @@ import org.example.p2pfileshare.service.PeerService;
 
 import java.io.File;
 import java.util.List;
-import java.util.Optional;
+import java.io.IOException;
 
 public class ShareTabController {
 
@@ -158,25 +163,27 @@ public class ShareTabController {
             return;
         }
 
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                "Bạn có muốn chắc chắn xóa file: " + selected.getFileName() + " không?");
-        confirm.showAndWait().ifPresent(response -> {
-                if (response == ButtonType.OK) {
-                    // Lấy đường dẫn file thật
-                    File fileToDelete = new File(shareFolderField.getText(), selected.getFileName());
-                    // Thực hiện xóa
-                    if (fileToDelete.exists() && fileToDelete.delete()) {
-                        // Xóa thành công -> Cập nhật lại giao diện
-                        sharedFiles.remove(selected); // Xóa khỏi bảng
-                        notifyPeersFileRemoved(selected.getFileName());
-                        refreshSharedFiles();
-                        new Alert(Alert.AlertType.INFORMATION, "Đã xóa file thành công!").showAndWait();
-                    } else {
-                        new Alert(Alert.AlertType.ERROR, "Không thể xóa file (Có thể đang mở hoặc thiếu quyền).").showAndWait();
-                    }
-                }
-            });
+        boolean confirmed = showConfirmDialog(
+                "🗑 Xác nhận xóa",
+                "Xóa file: " + selected.getFileName() + "?",
+                "Hành động này sẽ xóa file khỏi ổ cứng vĩnh viễn."
+        );
+
+        if (confirmed) {
+            // Lấy đường dẫn file thật
+            File fileToDelete = new File(shareFolderField.getText(), selected.getFileName());
+            // Thực hiện xóa
+            if (fileToDelete.exists() && fileToDelete.delete()) {
+                // Xóa thành công -> Cập nhật lại giao diện
+                sharedFiles.remove(selected); // Xóa khỏi bảng
+                notifyPeersFileRemoved(selected.getFileName());
+                refreshSharedFiles();
+                showSuccessDialog("Thành công", "Đã xóa file thành công!");
+            } else {
+                new Alert(Alert.AlertType.ERROR, "Không thể xóa file (Có thể đang mở hoặc thiếu quyền).").showAndWait();
+            }
         }
+    }
 
     private void notifyPeersFileRemoved(String fileName) {
         List<PeerInfo> activePeers = peerTabController.getActiveConnectedPeers();
@@ -184,6 +191,69 @@ public class ShareTabController {
         for (PeerInfo p : activePeers) {
             controlClient.sendSystemCommand(p, "REMOVE_FILE|" + fileName);
             System.out.println("Đã báo cho " + p.getName() + " xóa file: " + fileName);
+        }
+    }
+
+    private boolean showConfirmDialog(String title, String header, String content) {
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                    getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            javafx.scene.Parent page = loader.load();
+
+            Stage dialogStage = new Stage();
+            dialogStage.initStyle(javafx.stage.StageStyle.UNDECORATED);
+            dialogStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+            // Lấy window hiện tại làm chủ
+            if (shareFolderField.getScene() != null) {
+                dialogStage.initOwner(shareFolderField.getScene().getWindow());
+            }
+
+            javafx.scene.Scene scene = new javafx.scene.Scene(page);
+            dialogStage.setScene(scene);
+
+            ConfirmationController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+            controller.setContent(title, header, content, "Xóa ngay");
+            controller.setStyleDanger(); // Chuyển sang màu đỏ vì là xóa
+
+            dialogStage.showAndWait();
+            return controller.isConfirmed();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private void showSuccessDialog(String header, String content) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            Parent page = loader.load();
+
+            Stage dialogStage = new Stage();
+            dialogStage.initStyle(StageStyle.UNDECORATED);
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
+
+            if (sharedFileTable.getScene() != null) {
+                dialogStage.initOwner(sharedFileTable.getScene().getWindow());
+            }
+
+            dialogStage.setScene(new Scene(page));
+
+            ConfirmationController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+
+            // Set nội dung
+            controller.setContent("Thông báo", header, content, "Đóng");
+
+            // GỌI HÀM MỚI ĐỂ CHUYỂN GIAO DIỆN SANG MÀU XANH & ẨN NÚT HỦY
+            controller.setStyleSuccess();
+
+            dialogStage.showAndWait();
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 

@@ -24,8 +24,14 @@ public class ConnectedPeerController {
     @FXML private TableColumn<Row, String> colName;
     @FXML private TableColumn<Row, String> colRelative;
     @FXML private TableColumn<Row, Long>   colSize;
+
     @FXML private ProgressBar progress;
     @FXML private Label statusLabel;
+
+    @FXML private Button btnDownload;
+    @FXML private Button btnPause;
+    @FXML private Button btnResume;
+    @FXML private Button btnCancel;
 
     private final ObservableList<Row> rows = FXCollections.observableArrayList();
 
@@ -174,6 +180,11 @@ public class ConnectedPeerController {
         progress.setProgress(0);
         statusLabel.setText("Đang tải: " + fileRow.name);
 
+        if (btnDownload != null) btnDownload.setDisable(true); // Đang tải thì khóa nút tải
+        if (btnPause != null) btnPause.setDisable(false);      // Mở nút Pause
+        if (btnResume != null) btnResume.setDisable(true);     // Khóa nút Resume
+        if (btnCancel != null) btnCancel.setDisable(false);    // Mở nút Cancel
+
         Task<Boolean> task = new Task<>() {
             @Override
             protected Boolean call() {
@@ -195,6 +206,9 @@ public class ConnectedPeerController {
             boolean ok = (result != null && result);
             progress.setProgress(ok ? 1.0 : 0.0);
             statusLabel.setText(ok ? "Hoàn tất - Đã lưu tại: " + selectedFile.getAbsolutePath() : "Lỗi tải");
+
+            // Tải xong thì reset lại nút
+            resetButtons();
         });
 
         task.setOnFailed(e -> {
@@ -205,6 +219,48 @@ public class ConnectedPeerController {
         new Thread(task, "download-remote-file").start();
     }
 
+    @FXML
+    private void onPauseDownload() {
+        // Chỉ là Demo giao diện
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, "Chức năng Tạm dừng đang được phát triển!");
+        alert.setHeaderText("Tính năng Demo");
+        alert.showAndWait();
+
+        // Giả vờ disable nút này để nhìn giống thật
+        btnPause.setDisable(true);
+        btnResume.setDisable(false);
+        statusLabel.setText("Đang tạm dừng (Demo)...");
+    }
+
+    @FXML
+    private void onResumeDownload() {
+        // Chỉ là Demo giao diện
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, "Chức năng Tiếp tục đang được phát triển!");
+        alert.setHeaderText("Tính năng Demo");
+        alert.showAndWait();
+
+        // Giả vờ resume
+        btnPause.setDisable(false);
+        btnResume.setDisable(true);
+        statusLabel.setText("Đang tải tiếp (Demo)...");
+    }
+
+    @FXML
+    private void onCancelDownload() {
+        // Chỉ là Demo giao diện
+        if (btnDownload.isDisable()) { // Đang tải mới cho hủy
+            Alert alert = new Alert(Alert.AlertType.WARNING, "Bạn có chắc muốn hủy không? (Chức năng này chưa hoạt động thật)");
+            alert.showAndWait();
+        }
+    }
+
+    // Hàm reset trạng thái nút về ban đầu
+    private void resetButtons() {
+        if (btnDownload != null) btnDownload.setDisable(false);
+        if (btnPause != null) btnPause.setDisable(true);
+        if (btnResume != null) btnResume.setDisable(true);
+        if (btnCancel != null) btnCancel.setDisable(true);
+    }
 
     // NEW: setter callback
     public void setOnDisconnected(Runnable callback) {

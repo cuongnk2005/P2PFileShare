@@ -66,24 +66,66 @@ public class RootController {
 
         // 4) ControlServer để nhận CONNECT_REQUEST
         controlServer = new ControlServer(CONTROL_PORT, fromPeer -> {
-            // fromPeer là peerId của peer gửi yêu cầu
-            // Hỏi người dùng bằng JavaFX, nhưng phải block đến khi họ chọn xong
+            // fromPeer là peerId (hoặc tên) của peer gửi yêu cầu
+
+            // Biến atomic để lưu kết quả (Đồng ý/Từ chối) từ giao diện
             java.util.concurrent.atomic.AtomicBoolean accepted = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+            // Latch để bắt luồng mạng (ControlServer) phải chờ người dùng bấm nút xong mới chạy tiếp
             java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
 
+            // Chuyển việc hiển thị giao diện sang luồng JavaFX
             javafx.application.Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-                alert.setTitle("Yêu cầu kết nối");
-                alert.setHeaderText("Peer " + fromPeer + " muốn kết nối với bạn");
-                alert.setContentText("Bạn có đồng ý không?");
+                try {
+                    // 1. Load file FXML của Dialog đa năng
+                    javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                            getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+                    javafx.scene.Parent page = loader.load();
 
-                var result = alert.showAndWait();
-                boolean ok = result.isPresent() && result.get().getButtonData().isDefaultButton();
-                accepted.set(ok);
-                latch.countDown();
+                    // 2. Tạo cửa sổ (Stage)
+                    javafx.stage.Stage dialogStage = new javafx.stage.Stage();
+                    dialogStage.initStyle(javafx.stage.StageStyle.UNDECORATED); // Không viền
+                    dialogStage.initModality(javafx.stage.Modality.APPLICATION_MODAL); // Chặn cửa sổ chính
+
+                    // Set chủ sở hữu là cửa sổ chính (để dialog hiện ở giữa app)
+                    if (mainTabPane.getScene() != null) {
+                        dialogStage.initOwner(mainTabPane.getScene().getWindow());
+                    }
+
+                    javafx.scene.Scene scene = new javafx.scene.Scene(page);
+                    dialogStage.setScene(scene);
+
+                    // 3. Cấu hình Controller
+                    ConfirmationController controller = loader.getController();
+                    controller.setDialogStage(dialogStage);
+
+                    // --- THIẾT LẬP NỘI DUNG CHO KẾT NỐI ---
+                    controller.setContent(
+                            "🔗 Yêu cầu kết nối",                  // Tiêu đề
+                            "Peer \"" + fromPeer + "\" muốn kết nối!", // Header
+                            "Bạn có muốn cho phép thiết bị này truy cập kho file chia sẻ của bạn không?", // Nội dung
+                            "Chấp nhận"                           // Tên nút đồng ý
+                    );
+
+                    // 4. Hiện dialog và chờ người dùng bấm
+                    dialogStage.showAndWait();
+
+                    // 5. Lấy kết quả
+                    accepted.set(controller.isConfirmed());
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    // Fallback: Nếu lỗi load dialog thì dùng Alert cũ cho chắc ăn
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Peer " + fromPeer + " connect?");
+                    accepted.set(alert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK);
+                } finally {
+                    // Mở khóa cho luồng mạng
+                    latch.countDown();
+                }
             });
 
             try {
+                // Luồng mạng dừng ở đây chờ latch
                 latch.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
