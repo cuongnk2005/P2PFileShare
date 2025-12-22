@@ -245,7 +245,9 @@ public class ConnectedPeerController {
         } else {
             System.out.println("Không tìm thấy file để xóa!");
         }
-    }
+    });
+        }
+
 
     @FXML
     private void onDisconnect() {

@@ -4,55 +4,61 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 
-<BorderPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="org.example.p2pfileshare.controller.PeerTabController">
+<AnchorPane xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.p2pfileshare.controller.PeerTabController"
+            style="-fx-background-color: #f8f9fa;">
 
-    <padding>
-        <Insets top="10" right="10" bottom="10" left="10"/>
-    </padding>
+    <VBox spacing="15" AnchorPane.topAnchor="20" AnchorPane.leftAnchor="20" AnchorPane.rightAnchor="20" AnchorPane.bottomAnchor="20">
 
-    <top>
-        <HBox spacing="10">
-            <padding><Insets bottom="10"/></padding>
+        <VBox spacing="10" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 1);">
             <children>
-                <Button text="Quét LAN" onAction="#onScanPeers"/>
-                <Button text="Kết nối..." onAction="#onConnectPeer"/>
-                <Button text="Ngắt kết nối" onAction="#onDisconnectPeer"/>
-                <Label text="Trạng thái:"/>
-                <Label fx:id="peerStatusLabel" text="Chưa kết nối"/>
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <Label text="🌐" style="-fx-font-size: 24px;" />
+                    <VBox>
+                        <Label text="Mạng LAN" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+                        <Label text="Tìm kiếm và kết nối với các thiết bị khác" style="-fx-font-size: 12px; -fx-text-fill: #7f8c8d;" />
+                    </VBox>
+
+                    <Region HBox.hgrow="ALWAYS" />
+
+                    <Button text="🔄 Quét LAN" onAction="#onScanPeers" styleClass="button" />
+                    <Button text="🔗 Kết nối..." onAction="#onConnectPeer" styleClass="button" style="-fx-background-color: #27ae60;" />
+                    <Button text="❌ Ngắt kết nối" onAction="#onDisconnectPeer" styleClass="button, danger" />
+                </HBox>
+
+                <Separator />
+
+                <HBox spacing="5" alignment="CENTER_LEFT">
+                    <Label text="Trạng thái:" style="-fx-font-weight: bold; -fx-text-fill: #7f8c8d;" />
+                    <Label fx:id="peerStatusLabel" text="Đang chờ..." style="-fx-text-fill: #2980b9; -fx-font-style: italic;" />
+                </HBox>
             </children>
-        </HBox>
-    </top>
+        </VBox>
 
-    <center>
-        <TableView fx:id="peerTable">
+        <TableView fx:id="peerTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="colPeerName" text="Tên peer" prefWidth="150"/>
-                <TableColumn fx:id="colPeerIp" text="IP" prefWidth="120"/>
-                <TableColumn fx:id="colPeerPort" text="Port" prefWidth="80"/>
-                <TableColumn fx:id="colPeerStatus" text="Trạng thái" prefWidth="100"/>
+                <TableColumn fx:id="colPeerName" text="Tên máy (Peer Name)" prefWidth="250" />
+                <TableColumn fx:id="colPeerIp" text="Địa chỉ IP" prefWidth="150" style="-fx-alignment: CENTER;" />
+                <TableColumn fx:id="colPeerPort" text="Cổng (Port)" prefWidth="100" style="-fx-alignment: CENTER;" />
+                <TableColumn fx:id="colPeerStatus" text="Trạng thái" prefWidth="150" style="-fx-alignment: CENTER;" />
             </columns>
+            <columnResizePolicy>
+                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+            </columnResizePolicy>
+            <placeholder>
+                <Label text="Chưa tìm thấy thiết bị nào. Hãy nhấn 'Quét LAN'." style="-fx-text-fill: #bdc3c7; -fx-font-size: 14px;" />
+            </placeholder>
         </TableView>
-    </center>
 
-<!--    <bottom>-->
-<!--        <VBox spacing="10">-->
-<!--            <children>-->
-<!--                <HBox spacing="10">-->
-<!--                    <children>-->
-<!--                        <Label text="Tiến trình tải:"/>-->
-<!--                        <ProgressBar fx:id="downloadProgress" prefWidth="300"/>-->
-<!--                        <Label fx:id="downloadStatusLabel" text="Chưa tải"/>-->
-<!--                    </children>-->
-<!--                </HBox>-->
-<!--                <HBox spacing="10">-->
-<!--                    <children>-->
-<!--                        <Button text="Tải file mẫu" onAction="#onDownloadFile"/>-->
-<!--                    </children>-->
-<!--                </HBox>-->
-<!--            </children>-->
-<!--        </VBox>-->
-<!--    </bottom>-->
+        <VBox spacing="5" style="-fx-background-color: white; -fx-padding: 10; -fx-background-radius: 8;">
+            <Label text="Tiến trình hệ thống:" style="-fx-font-size: 11px; -fx-text-fill: #95a5a6; -fx-font-weight: bold;" />
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <ProgressBar fx:id="downloadProgress" prefWidth="300" progress="0.0" style="-fx-accent: #2ecc71;" />
+                <Label fx:id="downloadStatusLabel" text="Sẵn sàng" style="-fx-text-fill: #7f8c8d; -fx-font-size: 12px;" />
+            </HBox>
+        </VBox>
 
-</BorderPane>
+    </VBox>
+
+</AnchorPane>

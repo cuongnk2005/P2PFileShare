@@ -4,84 +4,80 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 
-<BorderPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="org.example.p2pfileshare.controller.RootController">
+<BorderPane xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.p2pfileshare.controller.RootController"
+            stylesheets="@styles.css"
+            prefWidth="1000" prefHeight="700">
 
-    <!-- ================= MENU BAR ================= -->
     <top>
-        <MenuBar>
-            <menus>
+        <HBox spacing="15" alignment="CENTER_LEFT" style="-fx-background-color: #2c3e50; -fx-padding: 10 20;">
+            <Label text="P2P SHARING" style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;" />
+            <Label text="LAN File Transfer" style="-fx-text-fill: #bdc3c7; -fx-font-size: 12px; -fx-font-style: italic;" />
 
-                <!-- Menu File -->
-                <Menu text="File">
-                    <items>
-                        <MenuItem text="Đổi tên..." onAction="#onChangeName" />
-                        <MenuItem text="Chọn thư mục chia sẻ..." onAction="#onChooseShareFolder" />
-                        <SeparatorMenuItem />
-                        <MenuItem text="Thoát" onAction="#onExit" />
-                    </items>
-                </Menu>
+            <Region HBox.hgrow="ALWAYS" />
 
-                <!-- Menu Help -->
-                <Menu text="Trợ giúp">
-                    <items>
-                        <MenuItem text="Giới thiệu" onAction="#onAbout" />
-                    </items>
-                </Menu>
+            <HBox spacing="10" alignment="CENTER" style="-fx-background-color: rgba(255,255,255,0.1); -fx-padding: 5 15; -fx-background-radius: 20;">
+                <Label text="👤" style="-fx-text-fill: white; -fx-font-size: 16px;" />
+                <Label fx:id="userNameLabel" text="Loading..." style="-fx-text-fill: white; -fx-font-weight: bold;" />
 
-            </menus>
-        </MenuBar>
+                <Button text="✎" onAction="#onChangeName"
+                        style="-fx-background-color: transparent; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14px; -fx-padding: 0 5;">
+                    <tooltip><Tooltip text="Đổi tên hiển thị" /></tooltip>
+                </Button>
+            </HBox>
+
+            <Separator orientation="VERTICAL" />
+
+            <Button text="❓ Giới thiệu" onAction="#onAbout" styleClass="button, secondary" style="-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-border-color: transparent;" />
+            <Button text="⏻ Thoát" onAction="#onExit" styleClass="button, danger" />
+        </HBox>
     </top>
 
-    <!-- ================= TAB PANE ================= -->
     <center>
-        <TabPane fx:id="mainTabPane">
+        <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE" style="-fx-background-color: #f8f9fa;">
             <tabs>
-
-                <!-- TAB PEER -->
-                <Tab text="Peer" closable="false">
-                    <fx:include source="PeerTab.fxml" fx:id="peerTab" />
+                <Tab text="🌐 Mạng LAN">
+                    <content>
+                        <fx:include source="PeerTab.fxml" fx:id="peerTab" />
+                    </content>
                 </Tab>
 
-                <!-- TAB SHARE -->
-                <Tab text="Tài liệu chia sẻ" closable="false">
-                    <fx:include source="ShareTab.fxml" fx:id="shareTab" />
+                <Tab text="📂 Tài liệu chia sẻ">
+                    <content>
+                        <fx:include source="ShareTab.fxml" fx:id="shareTab" />
+                    </content>
                 </Tab>
 
-                <!-- TAB SEARCH -->
-<!--                <Tab text="Tìm kiếm" closable="false">-->
-<!--                    <fx:include source="SearchTab.fxml" fx:id="searchTab" />-->
-<!--                </Tab>-->
-
-                <!-- TAB HISTORY -->
-                <Tab text="Lịch sử tải" closable="false">
-                    <fx:include source="HistoryTab.fxml" fx:id="historyTab" />
+                <Tab text="🔍 Tìm kiếm">
+                    <content>
+                        <fx:include source="SearchTab.fxml" fx:id="searchTab" />
+                    </content>
                 </Tab>
 
-                <!-- TAB INCOMING CONNECTIONS -->
-                <Tab text="Kết nối đến" closable="false">
-                    <fx:include source="IncomingConnectionTab.fxml" fx:id="incomingConnectionTab" />
+                <Tab text="🕒 Lịch sử tải">
+                    <content>
+                        <fx:include source="HistoryTab.fxml" fx:id="historyTab" />
+                    </content>
                 </Tab>
 
+                <Tab text="📡 Kết nối đến">
+                    <content>
+                        <fx:include source="IncomingConnectionTab.fxml" fx:id="incomingConnectionTab" />
+                    </content>
+                </Tab>
             </tabs>
         </TabPane>
     </center>
 
-    <!-- ================= STATUS BAR ================= -->
     <bottom>
-        <HBox spacing="10" style="-fx-background-color: #eeeeee;">
-            <padding>
-                <Insets top="5" right="5" bottom="5" left="5" />
-            </padding>
-            <children>
-                <Label text="Trạng thái:" />
-                <Label fx:id="globalStatusLabel" text="Sẵn sàng" />
-                <!-- spacer để đẩy tên người dùng sang phải -->
-                <Region HBox.hgrow="ALWAYS" />
-                <Label text="Người dùng:" />
-                <Label fx:id="userNameLabel" text="(chưa đặt)" />
-            </children>
+        <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-background-color: #ecf0f1; -fx-padding: 5 15; -fx-border-color: #bdc3c7; -fx-border-width: 1 0 0 0;">
+            <Label text="Trạng thái:" style="-fx-text-fill: #7f8c8d; -fx-font-weight: bold;" />
+            <Label fx:id="globalStatusLabel" text="Sẵn sàng" style="-fx-text-fill: #2c3e50;" />
+
+            <Region HBox.hgrow="ALWAYS" />
+
+            <Label text="P2P App v1.0" style="-fx-text-fill: #bdc3c7; -fx-font-size: 11px;" />
         </HBox>
     </bottom>
 
