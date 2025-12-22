@@ -1,5 +1,6 @@
 package org.example.p2pfileshare.controller;
 
+import javafx.animation.PauseTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -15,6 +16,7 @@ import org.example.p2pfileshare.util.AppConfig;
 
 import java.io.File;
 import java.nio.file.Path;
+import javafx.util.Duration;
 import java.util.List;
 import javafx.application.Platform;
 
@@ -25,8 +27,14 @@ public class ConnectedPeerController {
     @FXML private TableColumn<Row, String> colName;
     @FXML private TableColumn<Row, String> colRelative;
     @FXML private TableColumn<Row, Long>   colSize;
+
     @FXML private ProgressBar progress;
     @FXML private Label statusLabel;
+
+    @FXML private Button btnDownload;
+    @FXML private Button btnPause;
+    @FXML private Button btnResume;
+    @FXML private Button btnCancel;
 
     private final ObservableList<Row> rows = FXCollections.observableArrayList();
     private DownloadJob currentJob;
@@ -75,6 +83,9 @@ public class ConnectedPeerController {
         }
         currentJob.pause();
         statusLabel.setText("Đã tạm dừng");
+        if (btnPause != null) btnPause.setDisable(true);      // Mở nút Pause
+        if (btnResume != null) btnResume.setDisable(false);     // Khóa nút Resume
+
     }
 
     @FXML
@@ -85,6 +96,9 @@ public class ConnectedPeerController {
         }
         currentJob.resume();
         statusLabel.setText("Đang tiếp tục tải...");
+        if (btnPause != null) btnPause.setDisable(false);      // Mở nút Pause
+        if (btnResume != null) btnResume.setDisable(true);     // Khóa nút Resume
+
     }
 
     @FXML
@@ -93,10 +107,18 @@ public class ConnectedPeerController {
             statusLabel.setText("Chưa có tác vụ tải");
             return;
         }
-        currentJob.cancel(); // cancel sẽ cleanup .part/.bitmap/.meta (nếu bạn đã làm ở client)
-        progress.setProgress(0);
-        statusLabel.setText("Đã hủy tải");
-        currentJob = null;
+        currentJob.pause();
+
+        PauseTransition delay = new PauseTransition(Duration.seconds(3));
+        delay.setOnFinished(e -> {
+            if (currentJob == null) return; // phòng trường hợp đã bị đổi job
+            currentJob.cancel(); // cancel sẽ hiệu lực ở checkpoint
+            currentJob = null;
+            progress.setProgress(0);
+            statusLabel.setText("Đã hủy tải");
+            resetButtons();
+        });
+        delay.play();
     }
 
     private void setupContextMenu() {
@@ -207,6 +229,7 @@ public class ConnectedPeerController {
         progress.setProgress(0);
         statusLabel.setText("Đang chuẩn bị tải: " + fileRow.name);
 
+
         //  service tạo job + chạy nền + trả về handle
         currentJob = fileShareService.startDownload(
                 peer,
@@ -226,8 +249,23 @@ public class ConnectedPeerController {
                     }
                 })
         );
+
+        if (btnDownload != null) btnDownload.setDisable(true); // Đang tải thì khóa nút tải
+        if (btnPause != null) btnPause.setDisable(false);      // Mở nút Pause
+        if (btnResume != null) btnResume.setDisable(true);     // Khóa nút Resume
+        if (btnCancel != null) btnCancel.setDisable(false);    // Mở nút Cancel
+
+
     }
 
+
+    // Hàm reset trạng thái nút về ban đầu
+    private void resetButtons() {
+        if (btnDownload != null) btnDownload.setDisable(false);
+        if (btnPause != null) btnPause.setDisable(true);
+        if (btnResume != null) btnResume.setDisable(true);
+        if (btnCancel != null) btnCancel.setDisable(true);
+    }
 
     // NEW: setter callback
     public void setOnDisconnected(Runnable callback) {

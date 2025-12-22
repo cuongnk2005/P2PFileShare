@@ -49,11 +49,11 @@
                     </content>
                 </Tab>
 
-                <Tab text="🔍 Tìm kiếm">
-                    <content>
-                        <fx:include source="SearchTab.fxml" fx:id="searchTab" />
-                    </content>
-                </Tab>
+<!--                <Tab text="🔍 Tìm kiếm">-->
+<!--                    <content>-->
+<!--                        <fx:include source="SearchTab.fxml" fx:id="searchTab" />-->
+<!--                    </content>-->
+<!--                </Tab>-->
 
                 <Tab text="🕒 Lịch sử tải">
                     <content>

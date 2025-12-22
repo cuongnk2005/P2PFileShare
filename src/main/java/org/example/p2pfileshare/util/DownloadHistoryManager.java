@@ -34,9 +34,7 @@ public class DownloadHistoryManager {
                 .create();
     }
 
-    // ========================================================
     // Load lịch sử từ file
-    // ========================================================
     public synchronized List<DownloadHistory> loadHistory() {
         try {
             if (!Files.exists(historyPath)) {
@@ -55,9 +53,7 @@ public class DownloadHistoryManager {
         }
     }
 
-    // ========================================================
     // Lưu lịch sử xuống file
-    // ========================================================
     private synchronized void saveHistory(List<DownloadHistory> histories) {
         try (Writer writer = new FileWriter(historyPath.toFile())) {
             gson.toJson(histories, writer);
@@ -66,9 +62,7 @@ public class DownloadHistoryManager {
         }
     }
 
-    // ========================================================
     // Thêm 1 lịch sử mới
-    // ========================================================
     public synchronized void addHistory(DownloadHistory history) {
         List<DownloadHistory> histories = loadHistory();
         histories.add(history);
@@ -76,18 +70,14 @@ public class DownloadHistoryManager {
         notifyListeners();
     }
 
-    // ========================================================
     // Xóa toàn bộ lịch sử (ghi file rỗng)
-    // ========================================================
     public synchronized void clearHistory() {
         // Write empty list to the history file (keeps file present but empty)
         saveHistory(new ArrayList<>());
         notifyListeners();
     }
 
-    // ----------------------------
     // Listener API
-    // ----------------------------
     public void addChangeListener(Runnable listener) {
         if (listener != null) listeners.add(listener);
     }
