@@ -154,7 +154,7 @@ public class ChunkedFileServer {
              DataInputStream in = new DataInputStream(s.getInputStream());
              DataOutputStream out = new DataOutputStream(s.getOutputStream())) {
 
-            // ✅ Client gửi writeUTF -> server phải readUTF
+            // Client gửi writeUTF -> server phải readUTF
             String request = in.readUTF();
             if (request == null || request.isBlank()) return;
 
@@ -187,7 +187,7 @@ public class ChunkedFileServer {
             System.err.println("[ChunkedFileServer] Rejected client task (server stopping): " + ree.getMessage());
         }
     }
-
+    // hàm xử lý handleMetaRequest
     private void handleMetaRequest(FileTransferProtocol.ParsedCommand cmd, Path root, DataOutputStream out) throws IOException {
         String fileName = cmd.get(1);
         if (fileName == null) {
@@ -209,6 +209,8 @@ public class ChunkedFileServer {
 
         // hash từng chunk
         List<String> chunkHashes = new ArrayList<>(totalChunks);
+        // truy cập đến file để đọc từng chunk và băm, randomfile không cần phải đọc
+        // lần lượt từ 1 -> 10 mà có thể nhảy ngay đến 10 để đọc
         try (RandomAccessFile raf = new RandomAccessFile(filePath.toFile(), "r")) {
             byte[] buffer = new byte[DEFAULT_CHUNK_SIZE];
             for (int i = 0; i < totalChunks; i++) {
@@ -222,6 +224,7 @@ public class ChunkedFileServer {
                     chunkHashes.add(FileHashUtil.sha256(new byte[0]));
                 } else {
                     byte[] chunkData = new byte[read];
+                    // copy buffer -> chunkData, chunk cuối có thể có kích thước nhỏ hơn
                     System.arraycopy(buffer, 0, chunkData, 0, read);
                     chunkHashes.add(FileHashUtil.sha256(chunkData));
                 }

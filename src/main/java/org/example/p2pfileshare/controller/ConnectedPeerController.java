@@ -170,7 +170,7 @@ public class ConnectedPeerController {
 
         // Tạo đường dẫn file đích bên trong thư mục vừa chọn, giữ nguyên tên file gốc
         File selectedFile = new File(selectedDir, fileRow.name);
-
+        // progress bar
         progress.setProgress(0);
         statusLabel.setText("Đang tải: " + fileRow.name);
 

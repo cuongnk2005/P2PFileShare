@@ -42,6 +42,7 @@ public class ChunkedFileClient {
                 // Send request
                 String request = FileTransferProtocol.buildMetaRequest(fileName);
                 out.writeUTF(request);
+                // đảm bảo gửi ngay bầy giờ
                 out.flush();
 
                 // Read type
@@ -82,8 +83,11 @@ public class ChunkedFileClient {
                                        Consumer<Double> progressCallback) throws IOException {
 
         // Paths for resume
+        // địa chỉ file tạm khi đang tải
         Path partFile = Path.of(saveTo.toString() + ".part");
+        // địa chỉ lưu thông tin metadata
         Path metaFile = Path.of(saveTo.toString() + ".meta.properties");
+        // địa chỉ lưu bitmap tiến độ, đánh dấu chunk đã tải xong
         Path bitmapFile = Path.of(saveTo.toString() + ".bitmap");
 
         // 1) Request metadata

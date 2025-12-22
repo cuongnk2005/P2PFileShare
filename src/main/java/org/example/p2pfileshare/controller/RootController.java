@@ -277,6 +277,8 @@ public class RootController {
                     try {
                         mainTabPane.getScene().getWindow().hide();
                     } catch (Exception ignored) {}
+                    Platform.exit();     // dừng JavaFX runtime
+                    System.exit(0);
                 });
             }, "shutdown-thread").start();
 
@@ -285,6 +287,7 @@ public class RootController {
             // fallback: cứ đóng luôn
             mainTabPane.getScene().getWindow().hide();
         }
+
     }
 
 }
