@@ -4,6 +4,7 @@ import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
+import javafx.stage.Stage;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.network.control.ControlClient;
 import org.example.p2pfileshare.network.control.ControlServer;
@@ -35,7 +36,7 @@ public class RootController {
     private FileShareService fileShareService;
     private SearchService searchService;
     private HistoryService historyService;
-
+    private volatile boolean shuttingDown = false;
     // Control channel
     private ControlServer controlServer;
     private ControlClient controlClient;
@@ -114,11 +115,7 @@ public class RootController {
 
             });
         });
-//        changeNameController.setonUpdatePeerName(msg -> {
-//            Platform.runLater(() -> {
-//               this.myName = msg;
-//            });
-//        });
+
 
         System.out.println("[Root] ControlServer started at port " + CONTROL_PORT);
 
@@ -153,6 +150,15 @@ public class RootController {
             userNameLabel.setText(myName);
         }
         this.fileShareService.startServer();
+        Platform.runLater(() -> {
+            Stage stage = (Stage) mainTabPane.getScene().getWindow();
+            stage.setOnCloseRequest(event -> {
+                System.out.println("[root] Window close requested");
+                event.consume();          // chặn đóng ngay
+                onExit();                 // gọi shutdown
+                Platform.exit();          // rồi mới thoát
+            });
+        });
     }
 
     // ================= MENU =================
@@ -165,7 +171,8 @@ public class RootController {
 
     @FXML
     private void onExit() {
-        mainTabPane.getScene().getWindow().hide();
+        System.out.println("[root] Exiting application...");
+        shutdownGracefully();
     }
 
     @FXML
@@ -239,4 +246,45 @@ public class RootController {
 
         return name;
     }
+
+    private void shutdownGracefully() {
+        if (shuttingDown) return;
+        shuttingDown = true;
+
+        try {
+            if (globalStatusLabel != null) globalStatusLabel.setText("Đang ngắt kết nối...");
+
+            // 1) Lấy danh sách peer đang CONNECTED (bạn cần hàm này ở PeerService)
+            var peers = peerService != null ? peerService.getPeersByIds(controlServer.getConnectedPeers()) : java.util.List.<PeerInfo>of();
+
+            // 2) Gửi notify cho từng peer (chạy nền để không block UI)
+            new Thread(() -> {
+                for (PeerInfo p : peers) {
+                    try {
+                        // Bạn cần peer.getIp(), peer.getControlPort(), peer.getPeerId()
+                        controlClient.sendDisconnectRequest(p);
+                    } catch (Exception e) {
+                        System.out.println("[Shutdown] Failed notify " + p.getPeerId() + ": " + e.getMessage());
+                    }
+                }
+
+                // 3) Stop services
+                try { if (controlServer != null) controlServer.stop(); } catch (Exception ignored) {}
+                try { if (fileShareService != null) fileShareService.stopServer(); } catch (Exception ignored) {}
+                try { PeerDiscovery.stopResponder(); } catch (Exception ignored) {}
+
+                Platform.runLater(() -> {
+                    try {
+                        mainTabPane.getScene().getWindow().hide();
+                    } catch (Exception ignored) {}
+                });
+            }, "shutdown-thread").start();
+
+        } catch (Exception e) {
+            System.out.println("[Shutdown] " + e.getMessage());
+            // fallback: cứ đóng luôn
+            mainTabPane.getScene().getWindow().hide();
+        }
+    }
+
 }

@@ -20,77 +20,94 @@ public class PeerDiscovery {
     // Lưu port mà responder của tiến trình này đã bind (chỉ để log/debug)
     private static volatile int boundPort = -1;
     private static volatile boolean responderStarted = false;
-
+    private static volatile boolean responderRunning = false;
+    private static volatile DatagramSocket responderSocket = null;
+    private static Thread responderThread = null;
     // chế độ lắng nghe, sử dụng thread
-    public static void startResponder(String myPeerId,  java.util.function.Supplier<String> displayNameSupplier, int filePort, int controlPort) {
-        if (responderStarted) return;
-        responderStarted = true;
+    public static synchronized void startResponder(
+            String myPeerId,
+            java.util.function.Supplier<String> displayNameSupplier,
+            int filePort,
+            int controlPort
+    ) {
+        if (responderRunning) {
+            System.out.println("[Discovery] Responder already running");
+            return;
+        }
 
-        Thread t = new Thread(() -> {
+        responderRunning = true;
+
+        responderThread = new Thread(() -> {
             DatagramSocket socket = null;
             try {
-                // Thử mở lần lượt các port trong DISCOVERY_PORTS
+                // Thử bind các port
                 for (int p : DISCOVERY_PORTS) {
                     try {
                         socket = new DatagramSocket(p);
                         boundPort = p;
-                        System.out.println("[Discovery] Responder trên UDP với port: " + p);
+                        responderSocket = socket;
+                        System.out.println("[Discovery] Responder on UDP port: " + p);
                         break;
-                    } catch (BindException ex) {
-                        // Port đang dùng, thử port khác
-                    }
+                    } catch (BindException ignored) {}
                 }
 
                 if (socket == null) {
-                    System.err.println("[Discovery] Không thể mở bất kỳ discovery port nào!");
+                    System.err.println("[Discovery] Cannot bind any discovery port");
+                    responderRunning = false;
                     return;
                 }
 
                 byte[] buf = new byte[1024];
 
-                while (true) {
-                    DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                    socket.receive(packet);
+                while (responderRunning) {
+                    try {
+                        DatagramPacket packet = new DatagramPacket(buf, buf.length);
+                        socket.receive(packet); // ⛔ block ở đây
 
-                    String msg = new String(packet.getData(), 0, packet.getLength()).trim();
-                    if (!DISCOVER_MSG.equals(msg)) {
-                        continue;
+                        String msg = new String(packet.getData(), 0, packet.getLength()).trim();
+                        if (!DISCOVER_MSG.equals(msg)) continue;
+
+                        String response = RESPONSE_PREFIX + "|" +
+                                myPeerId + "|" +
+                                displayNameSupplier.get() + "|" +
+                                filePort + "|" +
+                                controlPort;
+
+                        byte[] respData = response.getBytes();
+                        DatagramPacket resp = new DatagramPacket(
+                                respData,
+                                respData.length,
+                                packet.getAddress(),
+                                packet.getPort()
+                        );
+                        socket.send(resp);
+
+                    } catch (SocketException se) {
+                        // xảy ra khi socket.close() lúc stop
+                        if (responderRunning) {
+                            System.err.println("[Discovery] Socket error: " + se.getMessage());
+                        }
+                        break;
                     }
-
-                    String ip = packet.getAddress().getHostAddress();
-
-                    // Chuẩn format mới: P2P_DISCOVER_RESPONSE|peerId|displayName|filePort|controlPort
-                    String response = RESPONSE_PREFIX + "|" +
-                            myPeerId + "|" +
-                            displayNameSupplier.get() + "|" +
-                            filePort + "|" +
-                            controlPort;
-
-                    byte[] respData = response.getBytes();
-                    DatagramPacket resp = new DatagramPacket(
-                            respData,
-                            respData.length,
-                            packet.getAddress(),
-                            packet.getPort()
-                    );
-                    socket.send(resp);
-
-                    System.out.println("[Discovery] Reply to " + ip + ":" + packet.getPort() +
-                            " -> " + response);
                 }
 
             } catch (IOException e) {
-                e.printStackTrace();
+                if (responderRunning) {
+                    e.printStackTrace();
+                }
             } finally {
                 if (socket != null && !socket.isClosed()) {
                     socket.close();
                 }
-                responderStarted = false;
+                responderSocket = null;
+                responderRunning = false;
+                System.out.println("[Discovery] Responder stopped");
             }
+
         }, "discovery-responder");
 
-        t.setDaemon(true);
-        t.start();
+        responderThread.setDaemon(true);
+        responderThread.start();
     }
 
     // Quét tìm peer trong LAN
@@ -202,4 +219,31 @@ public class PeerDiscovery {
 
         return result;
     }
+    public static synchronized void stopResponder() {
+        if (!responderRunning) {
+            System.out.println("[Discovery] Responder already stopped");
+            return;
+        }
+
+        System.out.println("[Discovery] Stopping responder...");
+        responderRunning = false;
+
+        // Đóng socket để unblock receive()
+        if (responderSocket != null && !responderSocket.isClosed()) {
+            responderSocket.close();
+        }
+
+        // Đợi thread kết thúc (optional nhưng debug rất sướng)
+        if (responderThread != null && responderThread.isAlive()) {
+            try {
+                responderThread.join(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        responderThread = null;
+        responderSocket = null;
+    }
+
 }

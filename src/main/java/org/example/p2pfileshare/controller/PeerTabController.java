@@ -265,50 +265,6 @@ public class PeerTabController {
         }
     }
 
-//    @FXML
-//    private void onDownloadFile() {
-//        PeerInfo peer = peerTable.getSelectionModel().getSelectedItem();
-//
-//        // 1) Chưa chọn peer
-//        if (peer == null) {
-//            showMsg("Vui lòng chọn peer trước!");
-//            return;
-//        }
-//
-//        // 2) Peer chưa kết nối
-//        if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
-//            showMsg("Bạn phải kết nối với peer trước khi tải file!");
-//            return;
-//        }
-//
-//        String fileName = "test.pdf";
-//        Path saveTo = Path.of("Downloads/" + fileName);
-//
-//        // ======= DEMO TẢI FILE TEST =======
-//        downloadProgress.setProgress(0);
-//        downloadStatusLabel.setText("Đang tải...");
-//
-//        Task<Boolean> task = new Task<>() {
-//            @Override
-//            protected Boolean call() {
-//                return fileShareService.download(peer, fileName, saveTo);
-//            }
-//        };
-//
-//        task.setOnSucceeded(e -> {
-//            boolean ok = task.getValue();
-//            downloadProgress.setProgress(ok ? 1.0 : 0.0);
-//            downloadStatusLabel.setText(ok ? "Hoàn tất!" : "Lỗi tải file!");
-//        });
-//
-//        task.setOnFailed(e -> {
-//            downloadProgress.setProgress(0);
-//            downloadStatusLabel.setText("Lỗi tải file!");
-//            task.getException().printStackTrace();
-//        });
-//
-//        new Thread(task, "peer-download").start();
-//    }
 
     // NGẮT KẾT NỐI
     @FXML
@@ -323,7 +279,7 @@ public class PeerTabController {
         if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
             peer.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
             peerTable.refresh();
-            peerStatusLabel.setText("Đã ngắt kết nối");
+            peerStatusLabel.setText("chưa kết nối đến peer này");
             return;
         }
 

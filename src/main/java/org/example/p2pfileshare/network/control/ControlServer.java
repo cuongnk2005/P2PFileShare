@@ -110,7 +110,7 @@ public class ControlServer {
                             if (accept) {
                                 acceptedPeers.add(fromPeer);
 
-
+                                // load lại danh sách incomming connection để cập nhật danh sách
                                 if (onPeerAccepted != null) {
                                     onPeerAccepted.run();
                                 }
@@ -169,7 +169,16 @@ public class ControlServer {
                     String fromPeer = msg.fromPeer; // người yêu cầu ngắt (mình) hoặc client
                     String toPeer   = msg.toPeer;   // người bị ngắt
                     acceptedPeers.remove(fromPeer); //remove(toPeer)
-
+                    if (onUpdatePeerName != null) {
+                        onUpdatePeerName.run();
+                    }
+                    if (onDisconnectNotify != null) {
+                        try {
+                            onDisconnectNotify.accept(msg);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    }
                     writer.println(ControlProtocol.build(ControlProtocol.DISCONNECT_NOTIFY,
                             msg.toPeer, msg.fromPeer, "Disconnected"));
                     System.out.println("[ControlServer] Disconnected: " + fromPeer);
@@ -178,7 +187,7 @@ public class ControlServer {
                 else if (ControlProtocol.DISCONNECT_NOTIFY.equals(msg.command)) {
                     System.out.println("[ControlServer] Received DISCONNECT_NOTIFY from " + msg.fromPeer
                             + " note=" + msg.note);
-                    // Gọi callback nếu đã đăng ký để UI xử lý (ví dụ hiện Alert)
+                    // Gọi callback nếu đã đăng ký để UI xử lý hiển alert thông báo ở root
                     if (onDisconnectNotify != null) {
                         try {
                             onDisconnectNotify.accept(msg);

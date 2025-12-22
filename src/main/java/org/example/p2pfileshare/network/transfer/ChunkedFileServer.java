@@ -6,6 +6,7 @@ import org.example.p2pfileshare.util.FileHashUtil;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,34 +20,133 @@ public class ChunkedFileServer {
     private static final int DEFAULT_CHUNK_SIZE = 1024 * 1024; // 1 MB
 
     // Đỡ tạo vô hạn thread
-    private final ExecutorService pool = Executors.newFixedThreadPool(32);
+    private ExecutorService pool = Executors.newFixedThreadPool(32);
+
+    // ===== NEW: lifecycle =====
+    private volatile boolean running = false;
+    private volatile ServerSocket serverSocket;
+    private Thread serverThread;
 
     public ChunkedFileServer(int port, Path initialFolder) {
         this.port = port;
         this.shareFolder.set(initialFolder);
     }
 
+    /** Cho phép set null để "tắt share" */
     public void changeFolder(Path newFolder) {
-        if (newFolder != null && Files.isDirectory(newFolder)) {
+        if (newFolder == null) {
+            shareFolder.set(null);
+            System.out.println("[ChunkedFileServer] Share folder cleared (no sharing)");
+            return;
+        }
+        if (Files.isDirectory(newFolder)) {
             shareFolder.set(newFolder);
             System.out.println("[ChunkedFileServer] Folder changed to: " + newFolder);
+        } else {
+            System.out.println("[ChunkedFileServer] Ignored changeFolder (not a directory): " + newFolder);
         }
     }
 
-    public void start() {
-        Thread t = new Thread(() -> {
-            try (ServerSocket serverSocket = new ServerSocket(port)) {
-                System.out.println("[ChunkedFileServer] Listening on port " + port);
-                while (true) {
+    /** Trạng thái chạy để UI check */
+    public boolean isRunning() {
+        return running;
+    }
+
+    /** Start server (idempotent) */
+    public synchronized void start() {
+        if (running) {
+            System.out.println("[ChunkedFileServer] Already running on port " + port);
+            return;
+        }
+
+        running = true;
+
+        // Nếu pool đã shutdown từ lần trước, tạo lại
+        if (pool == null || pool.isShutdown() || pool.isTerminated()) {
+            pool = Executors.newFixedThreadPool(32);
+        }
+
+        serverThread = new Thread(this::runLoop, "chunked-file-server");
+        serverThread.setDaemon(true);
+        serverThread.start();
+    }
+
+    private void runLoop() {
+        try {
+            serverSocket = new ServerSocket(port);
+            System.out.println("[ChunkedFileServer] Listening on port " + port);
+
+            while (running) {
+                try {
                     Socket client = serverSocket.accept();
                     pool.submit(() -> handleClient(client));
+                } catch (SocketException se) {
+                    // thường xảy ra khi stopServer() -> serverSocket.close()
+                    if (running) {
+                        System.err.println("[ChunkedFileServer] accept() socket error: " + se.getMessage());
+                    }
+                    break;
+                } catch (IOException e) {
+                    if (running) {
+                        System.err.println("[ChunkedFileServer] accept() error: " + e.getMessage());
+                    }
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
             }
-        }, "chunked-file-server");
-        t.setDaemon(true);
-        t.start();
+        } catch (IOException e) {
+            if (running) {
+                System.err.println("[ChunkedFileServer] Failed to bind/listen port " + port + ": " + e.getMessage());
+            }
+        } finally {
+            // cleanup
+            closeServerSocketQuietly();
+            System.out.println("[ChunkedFileServer] Server loop exited");
+        }
+    }
+
+    /** NEW: Stop server */
+    public synchronized void stopServer() {
+        if (!running) {
+            System.out.println("[ChunkedFileServer] Already stopped");
+            return;
+        }
+
+        System.out.println("[ChunkedFileServer] Stopping server...");
+        running = false;
+
+        // 1) Đóng server socket để accept() thoát ngay
+        closeServerSocketQuietly();
+
+        // 2) Dừng worker đang xử lý client (tuỳ bạn muốn graceful hay hard-stop)
+        if (pool != null) {
+            pool.shutdownNow();
+            try {
+                pool.awaitTermination(2, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        // 3) Cho thread server kết thúc (không bắt buộc nhưng debug dễ)
+        if (serverThread != null && serverThread.isAlive()) {
+            try {
+                serverThread.join(1000);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        System.out.println("[ChunkedFileServer] Stopped");
+    }
+
+    private void closeServerSocketQuietly() {
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+        } catch (IOException ignored) {
+        } finally {
+            serverSocket = null;
+        }
     }
 
     private void handleClient(Socket socket) {
@@ -82,6 +182,9 @@ public class ChunkedFileServer {
             // client đóng sớm
         } catch (IOException e) {
             System.err.println("[ChunkedFileServer] Client error: " + e.getMessage());
+        } catch (RejectedExecutionException ree) {
+            // xảy ra khi pool đã shutdown mà vẫn có accept/submit
+            System.err.println("[ChunkedFileServer] Rejected client task (server stopping): " + ree.getMessage());
         }
     }
 
@@ -125,8 +228,6 @@ public class ChunkedFileServer {
             }
         }
 
-        // ✅ Binary response đúng với client requestMetadata():
-        // type, name, fileSize, chunkSize, totalChunks, fileSha256, hash[i]...
         out.writeUTF(FileTransferProtocol.FILE_META_RESPONSE);
         out.writeUTF(fileName);
         out.writeLong(fileSize);
@@ -181,8 +282,6 @@ public class ChunkedFileServer {
 
         String chunkHash = FileHashUtil.sha256(chunkData);
 
-        // ✅ Binary response đúng với client downloadChunk():
-        // type, index(int), len(int), hash(UTF), bytes...
         out.writeUTF(FileTransferProtocol.CHUNK_DATA);
         out.writeInt(chunkIndex);
         out.writeInt(dataLen);

@@ -35,6 +35,12 @@ public class FileShareService {
             fileServer.start();
         }
     }
+    public void stopServer() {
+        if (fileServer != null) {
+            fileServer.stopServer();
+            fileServer = null;
+        }
+    }
 
     // =================================
     //      ĐỔI FOLDER CHIA SẺ RUNTIME
@@ -201,4 +207,5 @@ public class FileShareService {
     public String getMyDisplayName() {
         return myDisplayName;
     }
+
 }
