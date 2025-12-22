@@ -115,18 +115,17 @@ public class ShareTabController {
         Stage stage = (Stage) shareFolderField.getScene().getWindow();
         File dir = chooser.showDialog(stage);   // show dialog
 
-        loadLastSharedFolder();
-//        if (dir != null) {
-//            shareFolderField.setText(dir.getAbsolutePath());
-//            AppConfig.save(KEY_SHARE_DIR, dir.getAbsolutePath()); // lưu cấu hình
-//            fileShareService.setShareFolder(dir);  // áp dụng thư mục chia sẻ
-//
-//            refreshSharedFiles();
-//
-//            if (globalStatusLabel != null) {
-//                globalStatusLabel.setText("Thư mục chia sẻ: " + dir.getName());
-//            }
-//        }
+        if (dir != null) {
+            shareFolderField.setText(dir.getAbsolutePath());
+            AppConfig.save(KEY_SHARE_DIR, dir.getAbsolutePath()); // lưu cấu hình
+            fileShareService.setShareFolder(dir);  // áp dụng thư mục chia sẻ
+
+            refreshSharedFiles();
+
+            if (globalStatusLabel != null) {
+                globalStatusLabel.setText("Thư mục chia sẻ: " + dir.getName());
+            }
+        }
 
 
     }
