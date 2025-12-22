@@ -60,11 +60,21 @@ public class PeerTabController {
 
         setupTable();
         onScanPeers();
-        controlServer.setpeerUpdateName(() -> {
-            System.out.println("[IncomingConnection] Peer accepted → reload table");
+        // Lắng nghe cập nhật tên
+        if (this.controlServer != null) {
+            this.controlServer.setpeerUpdateName(() -> {
+                System.out.println("[IncomingConnection] Peer accepted → reload table");
+                Platform.runLater(this::onScanPeers);
+            });
 
-            Platform.runLater(this::onScanPeers);
-        });
+            // Lắng nghe tin nhắn hệ thống từ Server
+            this.controlServer.setOnSystemMessageReceived((senderId, msg) -> {
+                // Chuyển luồng về JavaFX Thread để an toàn cập nhật UI
+                Platform.runLater(() -> {
+                    this.routeSystemMessage(senderId, msg);
+                });
+            });
+        }
 
     }
 
@@ -326,6 +336,26 @@ public class PeerTabController {
         });
 
         new Thread(task, "disconnect-peer").start();
+    }
+
+    public void routeSystemMessage(String senderPeerId, String message) {
+        // 1. Tìm controller tương ứng với người gửi
+        ConnectedPeerController targetController = connectedControllers.get(senderPeerId);
+
+        // 2. Nếu tìm thấy (tức là đang mở tab chat với người này)
+        if (targetController != null) {
+            // Gọi hàm xử lý tin nhắn mà chúng ta vừa sửa lúc nãy
+            targetController.receivedMessage(message);
+        } else {
+            System.out.println("Nhận tin từ " + senderPeerId + " nhưng không tìm thấy tab nào đang mở.");
+        }
+    }
+
+    public List<PeerInfo> getActiveConnectedPeers() {
+        // Lấy danh sách các peer có trạng thái CONNECTED
+        return peerList.stream()
+                .filter(p -> p.getConnectionState() == PeerInfo.ConnectionState.CONNECTED)
+                .collect(Collectors.toList());
     }
 
     private void show(String msg) {

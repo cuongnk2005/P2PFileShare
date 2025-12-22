@@ -132,8 +132,14 @@ public class RootController {
         if (peerTabController != null)
             peerTabController.init(peerService, fileShareService, controlClient, controlServer, globalStatusLabel);
 
-        if (shareTabController != null)
-            shareTabController.init(fileShareService, globalStatusLabel);
+        if (shareTabController != null) {
+            shareTabController.init(
+                    fileShareService,
+                    globalStatusLabel,
+                    controlClient,
+                    peerTabController
+            );
+        }
 
         if (searchTabController != null)
             searchTabController.init(searchService, fileShareService, controlClient, globalStatusLabel);

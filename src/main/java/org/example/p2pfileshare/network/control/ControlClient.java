@@ -104,9 +104,6 @@ public class ControlClient {
         }
     }
 
-    /**
-     * Lấy danh sách file chia sẻ từ peer đích qua kênh điều khiển
-     */
     public List<RemoteFile> listFiles(PeerInfo peer) {
         return listFiles(peer.getIp(), peer.getControlPort(), peer.getPeerId());
     }
@@ -240,6 +237,21 @@ public class ControlClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void sendSystemCommand(PeerInfo peer, String rawCommand) {
+        if (peer == null) return;
+
+        String[] parts = rawCommand.split("\\|", 2);
+        if (parts.length < 2) return;
+
+        String prefix = parts[0]; // CMD:REMOVE_FILE
+        String content = parts[1]; // game.exe
+
+        String finalMsg = prefix + "|" + myPeerId + "|" + content;
+
+        System.out.println("[ControlClient] Sending System Cmd to " + peer.getName() + ": " + finalMsg);
+        sendOneWay(peer.getIp(), peer.getControlPort(), finalMsg);
     }
 
     private void handleDisconnectNotify(ControlProtocol.ParsedMessage msg) {
