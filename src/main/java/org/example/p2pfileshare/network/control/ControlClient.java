@@ -268,11 +268,11 @@ public class ControlClient {
     private void handleDisconnectNotifyClient(ControlProtocol.ParsedMessage msg) {
         String disconnectorName = msg.note != null ? msg.note : "Unknown";
         Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Ngắt kết nối");
-            alert.setHeaderText("ngắt kết nối thành công");
-            alert.setContentText(disconnectorName);
-            alert.showAndWait();
+//            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+//            alert.setTitle("Ngắt kết nối");
+//            alert.setHeaderText("ngắt kết nối thành công");
+//            alert.setContentText(disconnectorName);
+//            alert.showAndWait();
         });
     }
     public void broadcastUpdateName(List<PeerInfo> connectedPeers, String newName) {

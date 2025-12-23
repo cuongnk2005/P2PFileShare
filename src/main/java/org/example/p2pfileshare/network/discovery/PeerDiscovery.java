@@ -62,7 +62,7 @@ public class PeerDiscovery {
                 while (responderRunning) {
                     try {
                         DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                        socket.receive(packet); // ⛔ block ở đây
+                        socket.receive(packet);
 
                         String msg = new String(packet.getData(), 0, packet.getLength()).trim();
                         if (!DISCOVER_MSG.equals(msg)) continue;
