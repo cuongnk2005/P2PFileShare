@@ -10,19 +10,22 @@ import java.util.List;
 public class PeerDiscovery {
 
     // Các port có thể dùng cho discovery (UDP)
-    private static final int[] DISCOVERY_PORTS = {
-            50000, 50001, 50002, 50003, 50004
-    };
+//    private static final int[] DISCOVERY_PORTS = {
+//            50000, 50001, 50002, 50003, 50004
+//    };
+
+    // cấu hình multicast
+    private static final String MULTICAST_GROUP = "230.0.0.1";
+    private static final int MULTICAST_PORT = 8888;
 
     private static final String DISCOVER_MSG    = "P2P_DISCOVER_REQUEST";
     private static final String RESPONSE_PREFIX = "P2P_DISCOVER_RESPONSE";
 
-    // Lưu port mà responder của tiến trình này đã bind (chỉ để log/debug)
-    private static volatile int boundPort = -1;
-    private static volatile boolean responderStarted = false;
     private static volatile boolean responderRunning = false;
     private static volatile DatagramSocket responderSocket = null;
+    private static InetAddress groupAddress = null;
     private static Thread responderThread = null;
+
     // chế độ lắng nghe, sử dụng thread
     public static synchronized void startResponder(
             String myPeerId,
@@ -38,54 +41,48 @@ public class PeerDiscovery {
         responderRunning = true;
 
         responderThread = new Thread(() -> {
-            DatagramSocket socket = null;
             try {
-                // Thử bind các port
-                for (int p : DISCOVERY_PORTS) {
-                    try {
-                        socket = new DatagramSocket(p);
-                        boundPort = p;
-                        responderSocket = socket;
-                        System.out.println("[Discovery] Responder on UDP port: " + p);
-                        break;
-                    } catch (BindException ignored) {}
-                }
+                // 1. Tạo Multicast Socket
+                responderSocket = new MulticastSocket(MULTICAST_PORT);
+                groupAddress = InetAddress.getByName(MULTICAST_GROUP);
 
-                if (socket == null) {
-                    System.err.println("[Discovery] Cannot bind any discovery port");
-                    responderRunning = false;
-                    return;
-                }
+                // 2. Tham gia nhóm
+                InetSocketAddress group = new InetSocketAddress(groupAddress, MULTICAST_PORT);
+                responderSocket.joinGroup(group, null);
+                System.out.println("[Discovery] Responder joined Multicast Group: " + MULTICAST_GROUP + ":" + MULTICAST_PORT);
 
                 byte[] buf = new byte[1024];
 
                 while (responderRunning) {
                     try {
                         DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                        socket.receive(packet);
+                        responderSocket.receive(packet);
 
                         String msg = new String(packet.getData(), 0, packet.getLength()).trim();
-                        if (!DISCOVER_MSG.equals(msg)) continue;
+//                        if (!DISCOVER_MSG.equals(msg)) continue;
 
-                        String response = RESPONSE_PREFIX + "|" +
-                                myPeerId + "|" +
-                                displayNameSupplier.get() + "|" +
-                                filePort + "|" +
-                                controlPort;
+                        if (DISCOVER_MSG.equals(msg)) {
+                            String response = RESPONSE_PREFIX + "|" +
+                                    myPeerId + "|" +
+                                    displayNameSupplier.get() + "|" +
+                                    filePort + "|" +
+                                    controlPort;
 
-                        byte[] respData = response.getBytes();
-                        DatagramPacket resp = new DatagramPacket(
-                                respData,
-                                respData.length,
-                                packet.getAddress(),
-                                packet.getPort()
-                        );
-                        socket.send(resp);
+                            byte[] respData = response.getBytes();
+
+                            DatagramPacket resp = new DatagramPacket(
+                                    respData,
+                                    respData.length,
+                                    packet.getAddress(),
+                                    packet.getPort()
+                            );
+                            responderSocket.send(resp);
+                        }
 
                     } catch (SocketException se) {
                         // xảy ra khi socket.close() lúc stop
                         if (responderRunning) {
-                            System.err.println("[Discovery] Socket error: " + se.getMessage());
+                            System.err.println("[Discovery] Socket closed: " + se.getMessage());
                         }
                         break;
                     }
@@ -96,43 +93,50 @@ public class PeerDiscovery {
                     e.printStackTrace();
                 }
             } finally {
-                if (socket != null && !socket.isClosed()) {
-                    socket.close();
-                }
-                responderSocket = null;
-                responderRunning = false;
+                stopResponder();
                 System.out.println("[Discovery] Responder stopped");
             }
-
         }, "discovery-responder");
 
         responderThread.setDaemon(true);
         responderThread.start();
     }
 
+    public static synchronized void stopResponder() {
+        responderRunning = false;
+        if (responderSocket != null && !responderSocket.isClosed()) {
+            try {
+                if (groupAddress != null) {
+                    InetSocketAddress group = new InetSocketAddress(groupAddress, MULTICAST_PORT);
+                    responderSocket.leaveGroup(group, null);
+                }
+                responderSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        responderSocket = null;
+        System.out.println("[Discovery] Responder stopped");
+    }
+
     // Quét tìm peer trong LAN
     public static List<PeerInfo> discoverPeers(String myPeerId, int timeoutMillis) {
-
         List<PeerInfo> result = new ArrayList<>();
 
         try (DatagramSocket socket = new DatagramSocket()) {
-
-            socket.setBroadcast(true);  // cho phép gửi broadcast
             socket.setSoTimeout(timeoutMillis); // timeout chỉ chờ trong 3s, quá thì thôi
 
             byte[] data = DISCOVER_MSG.getBytes();
 
-            // Gửi broadcast đến tất cả DISCOVERY_PORTS
-            for (int port : DISCOVERY_PORTS) {
-                DatagramPacket packet = new DatagramPacket(
-                        data,
-                        data.length,
-                        InetAddress.getByName("255.255.255.255"), // gửi cho tất cả các mạng LAN
-                        port
-                );
-                socket.send(packet);
-            }
-            System.out.println("[Discovery] Sent broadcast to ports range");
+            InetAddress group = InetAddress.getByName(MULTICAST_GROUP);
+            DatagramPacket packet = new DatagramPacket(
+                    data,
+                    data.length,
+                    group,
+                    MULTICAST_PORT
+            );
+            socket.send(packet);
+            System.out.println("[Discovery] Sent Multicast Request to " + MULTICAST_GROUP);
 
             byte[] buf = new byte[1024];
             long start = System.currentTimeMillis();
@@ -202,11 +206,9 @@ public class PeerDiscovery {
                                     " ctrlPort:" + peerControlPort);
                         }
                     }
-
                 } catch (SocketTimeoutException e) {
                     // hết thời gian đợi -> thoát vòng while
                     break;
-
                 } catch (IOException ex) {
                     ex.printStackTrace();
                     break;
@@ -219,31 +221,4 @@ public class PeerDiscovery {
 
         return result;
     }
-    public static synchronized void stopResponder() {
-        if (!responderRunning) {
-            System.out.println("[Discovery] Responder already stopped");
-            return;
-        }
-
-        System.out.println("[Discovery] Stopping responder...");
-        responderRunning = false;
-
-        // Đóng socket để unblock receive()
-        if (responderSocket != null && !responderSocket.isClosed()) {
-            responderSocket.close();
-        }
-
-        // Đợi thread kết thúc (optional nhưng debug rất sướng)
-        if (responderThread != null && responderThread.isAlive()) {
-            try {
-                responderThread.join(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-
-        responderThread = null;
-        responderSocket = null;
-    }
-
 }
