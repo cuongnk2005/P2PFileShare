@@ -138,8 +138,6 @@ public class RootController {
         // inject FileShareService để phục vụ LIST_FILES
         controlServer.setFileShareService(fileShareService);
 
-        // --- [MỚI] CẤU HÌNH LOGIC TÌM KIẾM ---
-
         // A. Khi có người hỏi mình (SEARCH_REQ) -> Tìm file local và trả lời
         controlServer.setOnSearchRequestReceived((senderId, keyword) -> {
             // Lấy thông tin người hỏi để gửi trả

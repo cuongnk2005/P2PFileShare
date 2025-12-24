@@ -19,7 +19,7 @@
                         <Label text="Từ khóa" style="-fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-font-size: 11px;" />
                         <TextField fx:id="searchField" promptText="Nhập tên file cần tìm..." style="-fx-background-radius: 5;" />
                     </VBox>
-                    <Button text="Tìm kiếm" onAction="#onSearch" styleClass="button" prefHeight="35" minWidth="100" />
+                    <Button text="Tìm kiếm" onAction="#onSearch" defaultButton="true" styleClass="button" prefHeight="35" minWidth="100" />
                 </HBox>
 
                 <Separator />

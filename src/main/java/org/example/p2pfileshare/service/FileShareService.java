@@ -146,8 +146,8 @@ public class FileShareService {
         List<SharedFileLocal> allFiles = listSharedFiles();
 
         // 2. Nếu từ khóa trống thì trả về danh sách rỗng (hoặc trả hết tùy ý)
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return new ArrayList<>();
+        if (keyword == null || keyword.trim().isEmpty() || keyword.equals("*")) {
+            return new ArrayList<>(allFiles);
         }
 
         String searchKey = keyword.toLowerCase().trim();

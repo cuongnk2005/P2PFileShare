@@ -1,11 +1,14 @@
 package org.example.p2pfileshare.controller;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.input.KeyCode;
+import javafx.util.Duration;
 import org.example.p2pfileshare.model.PeerInfo;
 import org.example.p2pfileshare.model.SearchResult;
 import org.example.p2pfileshare.network.control.ControlClient;
@@ -51,6 +54,13 @@ public class SearchTabController {
         this.globalStatusLabel = globalStatusLabel;
 
         setupTable();
+        setupEnterKey();
+    }
+
+    private void setupEnterKey() {
+        searchField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) onSearch(); });
+        filterSubjectField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) onSearch(); });
+        filterPeerField.setOnKeyPressed(event -> { if (event.getCode() == KeyCode.ENTER) onSearch(); });
     }
 
     private void setupTable() {
@@ -76,26 +86,32 @@ public class SearchTabController {
         });
 
         searchResultTable.setItems(searchResults);
+        searchResultTable.setPlaceholder(new Label("Nhập điều kiện và nhấn Tìm kiếm"));
     }
 
     @FXML
     private void onSearch() {
         String keyword = searchField.getText() == null ? "" : searchField.getText().trim();
+        String subject = filterSubjectField.getText() == null ? "" : filterSubjectField.getText().trim();
+        String peerName = filterPeerField.getText() == null ? "" : filterPeerField.getText().trim();
 
-        if (keyword.isEmpty()) {
-            new Alert(Alert.AlertType.WARNING, "Vui lòng nhập từ khóa!").showAndWait();
+        // check nếu cả 3 điều kiện đều trống
+        if (keyword.isEmpty() && subject.isEmpty() && peerName.isEmpty()) {
+            showInfoDialog("Cảnh báo", "Thiếu thông tin", "Vui lòng nhập ít nhất một điều kiện tìm kiếm (Tên file, Môn hoặc Peer).", false);
             return;
         }
 
-        // 1. Xóa kết quả cũ
+        // 1. reset trạng thái
         searchResults.clear();
         downloadStatusLabel.setText("Đang gửi yêu cầu tìm kiếm...");
 
+        searchResultTable.setPlaceholder(new Label("⏳ Đang tìm kiếm..."));
+
         // 2. Lấy danh sách Peer ID đang kết nối từ Client
         List<String> connectedIds = controlClient.getPeerIdList();
-
         if (connectedIds == null || connectedIds.isEmpty()) {
-            downloadStatusLabel.setText("Không có peer nào đang kết nối.");
+            downloadStatusLabel.setText("Không có peer nào kết nối.");
+            searchResultTable.setPlaceholder(new Label("Không có kết nối nào."));
             return;
         }
 
@@ -113,13 +129,22 @@ public class SearchTabController {
         }
 
         downloadStatusLabel.setText("Đã gửi yêu cầu đến " + sentCount + " peer.");
+
+        // Sau 3 giây nếu vẫn chưa có kết quả thì hiện thông báo không tìm thấy
+        PauseTransition delay = new PauseTransition(Duration.seconds(3));
+        delay.setOnFinished(e -> {
+            if (searchResults.isEmpty()) {
+                searchResultTable.setPlaceholder(new Label("❌ Không tìm thấy kết quả nào phù hợp."));
+                downloadStatusLabel.setText("Hoàn tất tìm kiếm. Không có kết quả.");
+            }
+        });
+        delay.play();
     }
 
 
     public void onReceiveSearchResult(PeerInfo sender, String fileData) {
         Platform.runLater(() -> {
             try {
-                // fileData format: FileName:Size:Subject
                 String[] parts = fileData.split(":");
                 if (parts.length >= 2) {
                     String fName = parts[0];
@@ -127,22 +152,27 @@ public class SearchTabController {
                     try { fSize = Long.parseLong(parts[1]); } catch (Exception e) {}
                     String fSubject = parts.length > 2 ? parts[2] : "Khác";
 
-                    // --- LỌC KẾT QUẢ (Client Side Filter) ---
-                    String filterSub = filterSubjectField.getText() == null ? "" : filterSubjectField.getText().trim().toLowerCase();
-                    String filterPeer = filterPeerField.getText() == null ? "" : filterPeerField.getText().trim().toLowerCase();
+                    // Lấy lại giá trị filter hiện tại
+                    String curKey = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+                    String curSub = filterSubjectField.getText() == null ? "" : filterSubjectField.getText().trim().toLowerCase();
+                    String curPeer = filterPeerField.getText() == null ? "" : filterPeerField.getText().trim().toLowerCase();
 
-                    // Nếu có nhập lọc mà không khớp thì bỏ qua
-                    if (!filterSub.isEmpty() && !fSubject.toLowerCase().contains(filterSub)) return;
-                    if (!filterPeer.isEmpty() && !sender.getName().toLowerCase().contains(filterPeer)) return;
+                    // Lọc tên file (nếu server trả về hết do dùng "*")
+                    if (!curKey.isEmpty() && !fName.toLowerCase().contains(curKey)) return;
+
+                    // Lọc môn học
+                    if (!curSub.isEmpty() && !fSubject.toLowerCase().contains(curSub)) return;
+
+                    // Lọc tên Peer
+                    if (!curPeer.isEmpty() && !sender.getName().toLowerCase().contains(curPeer)) return;
 
                     // Thêm vào bảng
                     SearchResult result = new SearchResult(fName, fSize, fSubject, sender);
                     searchResults.add(result);
-
                     downloadStatusLabel.setText("Tìm thấy " + searchResults.size() + " kết quả.");
                 }
             } catch (Exception e) {
-                System.err.println("Lỗi parse search result: " + e.getMessage());
+                System.err.println("Lỗi parse: " + e.getMessage());
             }
         });
     }
@@ -156,7 +186,6 @@ public class SearchTabController {
                 "Chủ sở hữu: " + selected.getOwner().getName() + "\n" +
                 "IP: " + selected.getOwner().getIp();
 
-        // Thay Alert cũ bằng Dialog đẹp
         showInfoDialog("Chi tiết file", selected.getFileName(), content, true);
     }
 
@@ -173,7 +202,8 @@ public class SearchTabController {
         if (bytes >= 1024) return String.format("%.2f KB", bytes / 1024.0);
         return bytes + " B";
     }
-    // --- HÀM TIỆN ÍCH HIỂN THỊ DIALOG ĐẸP ---
+
+    // custom dialog
     private void showInfoDialog(String title, String header, String content, boolean isSuccess) {
         try {
             javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
@@ -191,7 +221,6 @@ public class SearchTabController {
             javafx.scene.Scene scene = new javafx.scene.Scene(page);
             dialogStage.setScene(scene);
 
-            // Nhớ import org.example.p2pfileshare.controller.ConfirmationController;
             ConfirmationController controller = loader.getController();
             controller.setDialogStage(dialogStage);
             controller.setContent(title, header, content, "Đóng");
