@@ -275,11 +275,13 @@ public class PeerTabController {
                 tabPane.getTabs().add(tab);
                 tabPane.getSelectionModel().select(tab);
             } else {
-                new Alert(Alert.AlertType.WARNING, "Không tìm thấy TabPane để mở tab mới").showAndWait();
+                showConfirmDialog("Cảnh báo", null, "Không tìm thấy TabPane để mở tab mớ.");
+//                new Alert(Alert.AlertType.WARNING, "Không tìm thấy TabPane để mở tab mới").showAndWait();
             }
 
         } catch (IOException ex) {
-            new Alert(Alert.AlertType.ERROR, "Lỗi tải UI tab kết nối: " + ex.getMessage()).showAndWait();
+            showConfirmDialog("Lỗi", "Lỗi tải UI tab kết nối:", " " + ex.getMessage());
+//            new Alert(Alert.AlertType.ERROR, "Lỗi tải UI tab kết nối: " + ex.getMessage()).showAndWait();
         }
     }
 
@@ -289,7 +291,7 @@ public class PeerTabController {
     private void onDisconnectPeer() {
         PeerInfo peer = peerTable.getSelectionModel().getSelectedItem();
         if (peer == null) {
-            new Alert(Alert.AlertType.WARNING, "Hãy chọn peer trước!").showAndWait();
+            showConfirmDialog("Cảnh báo", "Hãy chọn peer trước!", "Vui lòng chọn peer để kết nối.");
             return;
         }
 
@@ -297,7 +299,7 @@ public class PeerTabController {
         if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
             peer.setConnectionState(PeerInfo.ConnectionState.NOT_CONNECTED);
             peerTable.refresh();
-            peerStatusLabel.setText("chưa kết nối đến peer này");
+            peerStatusLabel.setText("Chưa kết nối đến peer này");
             return;
         }
 

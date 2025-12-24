@@ -190,7 +190,7 @@ public class ConnectedPeerController {
     private void onDownloadSelected() {
         Row sel = fileTable.getSelectionModel().getSelectedItem();
         if (sel == null) {
-            new Alert(Alert.AlertType.INFORMATION, "Hãy chọn 1 file để tải").showAndWait();
+            showSuccessDialog("Thông báo", "Hãy chọn 1 file để tải");
             return;
         }
         downloadFile(sel);
@@ -336,34 +336,39 @@ public class ConnectedPeerController {
             currentJob = null;
         }
 
-        // Nếu chưa kết nối thì chỉ cập nhật UI
+        // Reset UI nút bấm
+        resetButtons();
+
+        // Nếu chưa kết nối thì thoát luôn
         if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
             statusLabel.setText("Đã ngắt kết nối");
             fileTable.setDisable(true);
             return;
         }
 
+        // update UI
         statusLabel.setText("Đang ngắt kết nối...");
         peer.setConnectionState(PeerInfo.ConnectionState.PENDING);
         // Cập nhật progress/disable UI tạm thời
         progress.setProgress(-1);
         fileTable.setDisable(true);
 
+        // send request qua mạng
         Task<Boolean> task = new Task<>() {
             @Override
             protected Boolean call() {
-                currentJob.pause();
+//                currentJob.pause();
 
-                PauseTransition delay = new PauseTransition(Duration.seconds(3));
-                delay.setOnFinished(e -> {
-                    if (currentJob == null) return; // phòng trường hợp đã bị đổi job
-                    currentJob.cancel(); // cancel sẽ hiệu lực ở checkpoint
-                    currentJob = null;
-                    progress.setProgress(0);
-                    statusLabel.setText("Đã hủy tải");
-                    resetButtons();
-                });
-                delay.play();
+//                PauseTransition delay = new PauseTransition(Duration.seconds(3));
+//                delay.setOnFinished(e -> {
+//                    if (currentJob == null) return; // phòng trường hợp đã bị đổi job
+//                    currentJob.cancel(); // cancel sẽ hiệu lực ở checkpoint
+//                    currentJob = null;
+//                    progress.setProgress(0);
+//                    statusLabel.setText("Đã hủy tải");
+//                    resetButtons();
+//                });
+//                delay.play();
                 return controlClient.sendDisconnectRequest(peer);
             }
         };
@@ -376,6 +381,8 @@ public class ConnectedPeerController {
                 statusLabel.setText("Đã ngắt kết nối");
                 progress.setProgress(0);
                 fileTable.setDisable(true);
+
+                showSuccessDialog("Thành công", "Đã ngắt kết nối với peer.");
 
                 // Gọi callback để PeerTabController cập nhật danh sách peer và remove controller
                 if (onDisconnectedCallback != null) {

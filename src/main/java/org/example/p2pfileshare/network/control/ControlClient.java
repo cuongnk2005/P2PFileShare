@@ -155,7 +155,7 @@ public class ControlClient {
 
             // Nếu là DISCONNECT_NOTIFY cho mình -> gọi handler hiển thị alert và trả về true
             if (ControlProtocol.DISCONNECT_NOTIFY.equals(parsed.command) && myPeerId.equals(parsed.toPeer)) {
-                handleDisconnectNotifyClient(parsed);
+//                handleDisconnectNotifyClient(parsed);
                 return true;
             }
             return false;
@@ -234,27 +234,18 @@ public class ControlClient {
         System.out.println("[ControlClient] Sending System Cmd to " + peer.getName() + ": " + finalMsg);
         sendOneWay(peer.getIp(), peer.getControlPort(), finalMsg);
     }
-
-//    private void handleDisconnectNotify(ControlProtocol.ParsedMessage msg) {
-//        String disconnectorName = msg.note != null ? msg.note : "Unknown";
-//        Platform.runLater(() -> {
-//            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-//            alert.setTitle("Ngắt kết nối");
-//            alert.setHeaderText("Bạn đã bị ngắt kết nối");
-//            alert.setContentText(disconnectorName);
-//            alert.showAndWait();
-//        });
+//
+//    private void handleDisconnectNotifyClient(ControlProtocol.ParsedMessage msg) {
+//        System.out.println("[ControlClient] Disconnect notify received: " + msg.note);
+////        String disconnectorName = msg.note != null ? msg.note : "Unknown";
+////        Platform.runLater(() -> {
+////            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+////            alert.setTitle("Ngắt kết nối");
+////            alert.setHeaderText("ngắt kết nối thành công");
+////            alert.setContentText(disconnectorName);
+////            alert.showAndWait();
+////        });
 //    }
-    private void handleDisconnectNotifyClient(ControlProtocol.ParsedMessage msg) {
-        String disconnectorName = msg.note != null ? msg.note : "Unknown";
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Ngắt kết nối");
-            alert.setHeaderText("ngắt kết nối thành công");
-            alert.setContentText(disconnectorName);
-            alert.showAndWait();
-        });
-    }
     public void broadcastUpdateName(List<PeerInfo> connectedPeers, String newName) {
         if (connectedPeers == null || connectedPeers.isEmpty()) {
             return;

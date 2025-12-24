@@ -244,12 +244,26 @@ public class RootController {
 
     @FXML
     private void onAbout() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Giới thiệu");
-        alert.setHeaderText("P2P File Sharing - JavaFX");
-        alert.setContentText("Ứng dụng chia sẻ file ngang hàng trong LAN.");
-        alert.showAndWait();
+        showInfoDialog(
+                "Giới thiệu | About",
+                "Ứng dụng truyền file P2P - JavaFX\nP2P File Sharing Application",
+                "🇻🇳 Tiếng Việt:\n"
+                        + "Ứng dụng Desktop truyền file theo mô hình Peer-to-Peer (P2P), "
+                        + "cho phép các máy tính trong cùng mạng LAN chia sẻ và truyền dữ liệu "
+                        + "trực tiếp với nhau mà không cần sử dụng máy chủ trung tâm.\n"
+                        + "Ứng dụng giúp giảm tải hệ thống, tăng tốc độ truyền file "
+                        + "và phục vụ mục đích học tập, nghiên cứu.\n\n"
+                        + "🇺🇸 English:\n"
+                        + "This is a desktop file transfer application based on the Peer-to-Peer (P2P) model, "
+                        + "allowing computers within the same LAN to share and transfer files directly "
+                        + "without using a centralized server.\n"
+                        + "The application helps reduce system load, improve transfer speed, "
+                        + "and is developed for educational and research purposes.\n\n"
+                        + "Version: 1.0",
+                true
+        );
     }
+
 
     @FXML
     private void onChangeName() {
