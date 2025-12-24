@@ -127,7 +127,7 @@ public class PeerDiscovery {
                 DatagramPacket packet = new DatagramPacket(
                         data,
                         data.length,
-                        InetAddress.getByName("255.255.255.255"), // gửi cho tất cả các mạng LAN
+                        InetAddress.getByName("172.20.136.255"), // gửi cho tất cả các mạng LAN
                         port
                 );
                 socket.send(packet);
