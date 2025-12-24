@@ -103,5 +103,19 @@
     "peerName": "vương",
     "peerIp": "192.168.246.1",
     "downloadDate": "2025-12-23T09:54:21.4830703"
+  },
+  {
+    "fileName": "B7. Giao thuc HTTP.pdf",
+    "savedPath": "E:\\Dowloads\\B7. Giao thuc HTTP.pdf",
+    "peerName": "cường",
+    "peerIp": "192.168.199.1",
+    "downloadDate": "2025-12-24T02:02:26.2938514"
+  },
+  {
+    "fileName": "B3. Cac mo hinh ung dung mang.pdf",
+    "savedPath": "E:\\Dowloads\\B3. Cac mo hinh ung dung mang.pdf",
+    "peerName": "cường",
+    "peerIp": "192.168.199.1",
+    "downloadDate": "2025-12-24T02:03:16.8973181"
   }
 ]

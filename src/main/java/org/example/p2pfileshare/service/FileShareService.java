@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class FileShareService {
 
@@ -140,6 +141,23 @@ public class FileShareService {
         return result;
     }
 
+    public List<SharedFileLocal> searchLocalFiles(String keyword) {
+        // 1. Lấy tất cả file đang chia sẻ
+        List<SharedFileLocal> allFiles = listSharedFiles();
+
+        // 2. Nếu từ khóa trống thì trả về danh sách rỗng (hoặc trả hết tùy ý)
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        String searchKey = keyword.toLowerCase().trim();
+
+        // 3. Lọc file khớp tên
+        return allFiles.stream()
+                .filter(f -> f.getFileName().toLowerCase().contains(searchKey))
+                .collect(Collectors.toList());
+    }
+
     // tạo metadata cho file
     private SharedFileLocal buildMetadata(File f) {
         String fileName = f.getName();
@@ -195,6 +213,7 @@ public class FileShareService {
     public String getMyDisplayName() {
         return myDisplayName;
     }
+
     public DownloadJob startDownload(PeerInfo peer, String relativePath, Path saveTo,
                                      Consumer<Double> progressCallback,
                                      Consumer<String> statusCallback) {

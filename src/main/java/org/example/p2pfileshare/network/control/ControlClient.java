@@ -9,17 +9,12 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Client cho kênh điều khiển:
- * - Gửi CONNECT_REQUEST tới peer khác.
- * - Đọc CONNECT_ACCEPT / CONNECT_REJECT trả về.
- * - LIST_FILES để lấy danh sách file chia sẻ (tối giản: tên/relative/size)
- */
 public class ControlClient {
 
     private final String myPeerId;
     private String myDisplayName;
     private List<String> peerIdList = new ArrayList<>();
+
     public ControlClient(String myPeerId, String myDisplayName) {
         this.myPeerId = myPeerId;
         this.myDisplayName = myDisplayName;
@@ -29,20 +24,10 @@ public class ControlClient {
         this.myDisplayName = myDisplayName;
     }
 
-    /**
-     * Gửi yêu cầu kết nối tới 1 peer, dùng info từ PeerInfo.
-     * RETURN:
-     *   true  -> peer kia ACCEPT
-     *   false -> peer kia REJECT hoặc lỗi
-     */
     public boolean sendConnectRequest(PeerInfo peer) {
         return sendConnectRequest(peer.getIp(), peer.getControlPort(), peer.getPeerId());
     }
 
-    /**
-     * Gửi CONNECT_REQUEST tới host:controlPort.
-     * toPeer ở đây là peerId của peer đích.
-     */
     public boolean sendConnectRequest(String host, int controlPort, String toPeer) {
         System.out.println("[ControlClient] Connecting to " + host + ":" + controlPort +
                 " to request connect → " + toPeer);
@@ -62,12 +47,9 @@ public class ControlClient {
             );
 
             writer.println(msg);
-            System.out.println("[ControlClient] Sent: " + msg);
 
             // 2) Đọc 1 dòng response
             String respRaw = reader.readLine();
-            System.out.println("[ControlClient] Received: " + respRaw);
-
             if (respRaw == null || respRaw.isEmpty()) {
                 return false;
             }
@@ -77,25 +59,16 @@ public class ControlClient {
                 return false;
             }
 
-            // EXPECT:
-            //   fromPeer = bên kia (peerId)
-            //   toPeer   = myPeerId
             if (!myPeerId.equals(parsed.toPeer)) {
-                System.out.println("[ControlClient] Response not for me → " + parsed.toPeer);
                 return false;
             }
 
             if (ControlProtocol.CONNECT_ACCEPT.equals(parsed.command)) {
-                System.out.println("[ControlClient] CONNECT_ACCEPT from " + parsed.fromPeer);
                 this.peerIdList.add(parsed.fromPeer);
                 return true;
-
             } else if (ControlProtocol.CONNECT_REJECT.equals(parsed.command)) {
-                System.out.println("[ControlClient] CONNECT_REJECT from " + parsed.fromPeer +
-                        " reason=" + parsed.note);
                 return false;
             } else {
-                System.out.println("[ControlClient] Unknown command: " + parsed.command);
                 return false;
             }
 
@@ -130,7 +103,6 @@ public class ControlClient {
 
             if (ControlProtocol.LIST_FILES_RESPONSE.equals(parsed.command)) {
                 String payload = parsed.note != null ? parsed.note : "";
-                System.out.println("[DEBUG] Payload nhận được:\n" + payload);
                 // Parse TSV lines: name\trelative\tsize
                 String[] lines = payload.split("<NL>");
                 System.out.println("Số dòng: " + lines.length);
@@ -153,10 +125,6 @@ public class ControlClient {
         return files;
     }
 
-    /**
-     * Gửi yêu cầu ngắt kết nối tới peer (yêu cầu peer server xoá quyền truy cập của mình).
-     * Trả về true nếu peer phản hồi DISCONNECT_NOTIFY (thành công), false nếu lỗi.
-     */
     public boolean sendDisconnectRequest(PeerInfo peer) {
         if (peer == null) return false;
         return sendDisconnectRequest(peer.getIp(), peer.getControlPort(), peer.getPeerId());
@@ -174,13 +142,10 @@ public class ControlClient {
                     toPeer,     // to = peer đích
                     "Request disconnect"
             );
-
             writer.println(msg);
-            System.out.println("[ControlClient] Sent: " + msg);
 
             // Đọc phản hồi 1 dòng (ControlServer hiện gửi DISCONNECT_NOTIFY)
             String respRaw = reader.readLine();
-            System.out.println("[ControlClient] Received: " + respRaw);
             if (respRaw == null || respRaw.isBlank()) {
                 return false;
             }
@@ -193,13 +158,28 @@ public class ControlClient {
                 handleDisconnectNotifyClient(parsed);
                 return true;
             }
-
             return false;
-
         } catch (IOException e) {
             e.printStackTrace();
             return false;
         }
+    }
+
+    // gửi yêu cầu tìm kiếm file
+    public void sendSearchRequest(PeerInfo peer, String keyword) {
+        if (peer == null) return;
+        // Gửi lệnh SEARCH_REQ|keyword
+        // ControlServer bên kia phải xử lý cmd.startsWith("SEARCH_REQ")
+        String command = "SEARCH_REQ|" + keyword;
+        // sendSystemCommand sẽ tự nối thêm myPeerId vào (xem logic bên dưới)
+        sendSystemCommand(peer, command);
+    }
+
+    // gửi phản hồi tìm kiếm file
+    public void sendSearchResponse(PeerInfo peer, String fileData) {
+        if (peer == null) return;
+        String command = "SEARCH_RES|" + fileData;
+        sendSystemCommand(peer, command);
     }
 
     // DTO đơn giản cho UI
@@ -255,29 +235,28 @@ public class ControlClient {
         sendOneWay(peer.getIp(), peer.getControlPort(), finalMsg);
     }
 
-    private void handleDisconnectNotify(ControlProtocol.ParsedMessage msg) {
+//    private void handleDisconnectNotify(ControlProtocol.ParsedMessage msg) {
+//        String disconnectorName = msg.note != null ? msg.note : "Unknown";
+//        Platform.runLater(() -> {
+//            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+//            alert.setTitle("Ngắt kết nối");
+//            alert.setHeaderText("Bạn đã bị ngắt kết nối");
+//            alert.setContentText(disconnectorName);
+//            alert.showAndWait();
+//        });
+//    }
+    private void handleDisconnectNotifyClient(ControlProtocol.ParsedMessage msg) {
         String disconnectorName = msg.note != null ? msg.note : "Unknown";
         Platform.runLater(() -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Ngắt kết nối");
-            alert.setHeaderText("Bạn đã bị ngắt kết nối");
+            alert.setHeaderText("ngắt kết nối thành công");
             alert.setContentText(disconnectorName);
             alert.showAndWait();
         });
     }
-    private void handleDisconnectNotifyClient(ControlProtocol.ParsedMessage msg) {
-        String disconnectorName = msg.note != null ? msg.note : "Unknown";
-        Platform.runLater(() -> {
-//            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-//            alert.setTitle("Ngắt kết nối");
-//            alert.setHeaderText("ngắt kết nối thành công");
-//            alert.setContentText(disconnectorName);
-//            alert.showAndWait();
-        });
-    }
     public void broadcastUpdateName(List<PeerInfo> connectedPeers, String newName) {
         if (connectedPeers == null || connectedPeers.isEmpty()) {
-            System.out.println("[ControlClient] broadcastUpdateName: no connected peers");
             return;
         }
 
@@ -305,18 +284,13 @@ public class ControlClient {
 
             try {
                 sendOneWay(p.getIp(), p.getControlPort(), msg);
-                System.out.println("[ControlClient] UPDATE_NAME sent -> " + p.getPeerId()
-                        + " (" + p.getIp() + ":" + p.getControlPort() + ")");
                 ok++;
             } catch (Exception e) {
-                System.out.println("[ControlClient] UPDATE_NAME FAIL -> " + p.getPeerId()
-                        + " (" + p.getIp() + ":" + p.getControlPort() + ") err=" + e.getMessage());
                 fail++;
             }
         }
-
-        System.out.println("[ControlClient] broadcastUpdateName done. ok=" + ok + ", fail=" + fail);
     }
+
     public List<String> getPeerIdList() {
         return peerIdList;
     }

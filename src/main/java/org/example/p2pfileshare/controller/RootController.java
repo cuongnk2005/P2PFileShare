@@ -6,6 +6,7 @@ import javafx.scene.control.*;
 
 import javafx.stage.Stage;
 import org.example.p2pfileshare.model.PeerInfo;
+import org.example.p2pfileshare.model.SharedFileLocal;
 import org.example.p2pfileshare.network.control.ControlClient;
 import org.example.p2pfileshare.network.control.ControlServer;
 import org.example.p2pfileshare.network.discovery.PeerDiscovery;
@@ -15,6 +16,7 @@ import org.example.p2pfileshare.service.PeerService;
 import org.example.p2pfileshare.service.SearchService;
 import org.example.p2pfileshare.util.AppConfig;
 
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
@@ -37,6 +39,7 @@ public class RootController {
     private SearchService searchService;
     private HistoryService historyService;
     private volatile boolean shuttingDown = false;
+
     // Control channel
     private ControlServer controlServer;
     private ControlClient controlClient;
@@ -47,15 +50,18 @@ public class RootController {
     private final int FILE_PORT      = 6000  + new Random().nextInt(1000);
     private final int CONTROL_PORT   = 7000  + new Random().nextInt(1000);
     private static final String KEY_PEER_NAME = "peer_display_name";
+
     @FXML
     public void initialize() {
-
         // 1) Hỏi tên peer
         myName = loadOrAskPeerName();
         myPeerId = UUID.randomUUID().toString();
         historyService   = new HistoryService();
+
         // 2) Khởi tạo service
         peerService      = new PeerService(myPeerId, myName, FILE_PORT, CONTROL_PORT);
+        peerService.start(); // gọi hàm này để người khác tìm thấy mình
+
         fileShareService = new FileShareService(FILE_PORT, historyService);
         fileShareService.setMyDisplayName(myName); // Truyền tên hiển thị vào FileShareService
         searchService    = new SearchService();
@@ -66,8 +72,6 @@ public class RootController {
 
         // 4) ControlServer để nhận CONNECT_REQUEST
         controlServer = new ControlServer(CONTROL_PORT, fromPeer -> {
-            // fromPeer là peerId (hoặc tên) của peer gửi yêu cầu
-
             // Biến atomic để lưu kết quả (Đồng ý/Từ chối) từ giao diện
             java.util.concurrent.atomic.AtomicBoolean accepted = new java.util.concurrent.atomic.AtomicBoolean(false);
 
@@ -98,8 +102,6 @@ public class RootController {
                     // 3. Cấu hình Controller
                     ConfirmationController controller = loader.getController();
                     controller.setDialogStage(dialogStage);
-
-                    // --- THIẾT LẬP NỘI DUNG CHO KẾT NỐI ---
                     controller.setContent(
                             "🔗 Yêu cầu kết nối",                  // Tiêu đề
                             "Peer \"" + fromPeer + "\" muốn kết nối!", // Header
@@ -130,25 +132,51 @@ public class RootController {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-
             return accepted.get();
         });
+
         // inject FileShareService để phục vụ LIST_FILES
         controlServer.setFileShareService(fileShareService);
+
+        // --- [MỚI] CẤU HÌNH LOGIC TÌM KIẾM ---
+
+        // A. Khi có người hỏi mình (SEARCH_REQ) -> Tìm file local và trả lời
+        controlServer.setOnSearchRequestReceived((senderId, keyword) -> {
+            // Lấy thông tin người hỏi để gửi trả
+            PeerInfo senderInfo = peerService.getPeerFromId(senderId);
+            if (senderInfo != null) {
+                // Tìm trong máy mình
+                List<SharedFileLocal> foundFiles = fileShareService.searchLocalFiles(keyword);
+
+                // Gửi trả từng file tìm được
+                for (SharedFileLocal f : foundFiles) {
+                    // Format: Name:Size:Subject
+                    String data = f.getFileName() + ":" + f.getSize() + ":" +
+                            (f.getSubject() == null ? "" : f.getSubject());
+                    controlClient.sendSearchResponse(senderInfo, data);
+                }
+            }
+        });
+
+        // B. Khi nhận được kết quả (SEARCH_RES) -> Đẩy vào SearchTab
+        controlServer.setOnSearchResultReceived((senderId, data) -> {
+            PeerInfo senderInfo = peerService.getPeerFromId(senderId);
+            if (senderInfo != null && searchTabController != null) {
+                searchTabController.onReceiveSearchResult(senderInfo, data);
+            }
+        });
+
         controlServer.start();
 
-        // NEW: khi ControlServer nhận DISCONNECT_NOTIFY từ remote, hiển thị Alert cho người dùng
+        // Xử lý thông báo ngắt kết nối
         controlServer.setOnDisconnectNotify(msg -> {
             Platform.runLater(() -> {
                 System.out.println("DISCONNECT_NOTIFY from=" + msg.fromPeer + " to=" + msg.toPeer);
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Ngắt kết nối");
-                alert.setHeaderText("Bạn đã bị ngắt kết nối");
                 String content = (msg.note != null && !msg.note.isBlank())
                         ? msg.note
-                        : ("Bạn đã bị ngắt kết nối bởi " + (msg.fromPeer != null ? msg.fromPeer : "Unknown"));
-                alert.setContentText(content);
-                alert.showAndWait();
+                        : ("Bởi peer: " + (msg.fromPeer != null ? msg.fromPeer : "Unknown"));
+
+                showInfoDialog("Thông báo", "Bạn đã bị ngắt kết nối", content, false);
                 // Cập nhật global status nếu cần
                 if (globalStatusLabel != null) {
                     globalStatusLabel.setText("Bạn đã bị ngắt kết nối: " + (msg.fromPeer != null ? msg.fromPeer : "Unknown"));
@@ -161,16 +189,7 @@ public class RootController {
 
         System.out.println("[Root] ControlServer started at port " + CONTROL_PORT);
 
-        // 5) Bật Discovery Responder
-        PeerDiscovery.startResponder(
-                myPeerId,
-                () -> myName,
-                FILE_PORT,
-                CONTROL_PORT
-        );
-
-
-        // 6) Inject service vào UI controllers
+        // Inject service vào UI controllers
         if (peerTabController != null)
             peerTabController.init(peerService, fileShareService, controlClient, controlServer, globalStatusLabel);
 
@@ -184,7 +203,7 @@ public class RootController {
         }
 
         if (searchTabController != null)
-            searchTabController.init(searchService, fileShareService, controlClient, globalStatusLabel);
+            searchTabController.init(searchService, fileShareService, controlClient, peerService, globalStatusLabel);
 
         if (historyTabController != null)
             historyTabController.init(historyService, globalStatusLabel);
@@ -272,8 +291,6 @@ public class RootController {
         }
     }
 
-    // ================= HỖ TRỢ =================
-
     private String loadOrAskPeerName() {
         // 1) Load tên đã lưu
         String saved = AppConfig.load(KEY_PEER_NAME);
@@ -328,11 +345,12 @@ public class RootController {
                 // 3) Stop services
                 try { if (controlServer != null) controlServer.stop(); } catch (Exception ignored) {}
                 try { if (fileShareService != null) fileShareService.stopServer(); } catch (Exception ignored) {}
-                try { PeerDiscovery.stopResponder(); } catch (Exception ignored) {}
+                try { if (peerService != null) peerService.stop(); } catch (Exception ignored) {}
 
                 Platform.runLater(() -> {
                     try {
-                        mainTabPane.getScene().getWindow().hide();
+                        if (mainTabPane.getScene() != null)
+                            mainTabPane.getScene().getWindow().hide();
                     } catch (Exception ignored) {}
                     Platform.exit();     // dừng JavaFX runtime
                     System.exit(0);
@@ -342,9 +360,48 @@ public class RootController {
         } catch (Exception e) {
             System.out.println("[Shutdown] " + e.getMessage());
             // fallback: cứ đóng luôn
-            mainTabPane.getScene().getWindow().hide();
+            if (mainTabPane.getScene() != null)
+                mainTabPane.getScene().getWindow().hide();
         }
 
+    }
+
+    private void showInfoDialog(String title, String header, String content, boolean isSuccess) {
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                    getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            javafx.scene.Parent page = loader.load();
+
+            javafx.stage.Stage dialogStage = new javafx.stage.Stage();
+            dialogStage.initStyle(javafx.stage.StageStyle.UNDECORATED);
+            dialogStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+            if (mainTabPane.getScene() != null) {
+                dialogStage.initOwner(mainTabPane.getScene().getWindow());
+            }
+
+            javafx.scene.Scene scene = new javafx.scene.Scene(page);
+            dialogStage.setScene(scene);
+
+            ConfirmationController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+
+            // Thiết lập nội dung
+            controller.setContent(title, header, content, "Đóng");
+
+            if (isSuccess) {
+                controller.setStyleSuccess(); // Màu xanh
+            } else {
+                controller.setStyleDanger(); // Màu đỏ (nếu cần)
+            }
+
+            dialogStage.showAndWait();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Fallback nếu lỗi
+            new Alert(Alert.AlertType.INFORMATION, content).showAndWait();
+        }
     }
 
 }

@@ -331,6 +331,11 @@ public class ConnectedPeerController {
             return;
         }
 
+        if (currentJob != null) {
+            currentJob.cancel();
+            currentJob = null;
+        }
+
         // Nếu chưa kết nối thì chỉ cập nhật UI
         if (peer.getConnectionState() != PeerInfo.ConnectionState.CONNECTED) {
             statusLabel.setText("Đã ngắt kết nối");
