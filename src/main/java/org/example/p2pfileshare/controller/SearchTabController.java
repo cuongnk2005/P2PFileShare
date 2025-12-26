@@ -4,6 +4,7 @@ import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -190,11 +191,27 @@ public class SearchTabController {
     }
 
     @FXML
-    private void onDownloadFile() {
-        // TODO: sau này, lấy thông tin file & peer từ searchResultTable rồi gọi fileShareService.download(...)
+    public void onDownloadSelected(ActionEvent actionEvent) {
         downloadProgress.setProgress(0.3);
         downloadStatusLabel.setText("Đang tải (demo)...");
     }
+
+    @FXML
+    public void onPauseDownload(ActionEvent actionEvent) {
+
+    }
+
+    @FXML
+    public void onResumeDownload(ActionEvent actionEvent) {
+
+    }
+
+    @FXML
+    public void onCancelDownload(ActionEvent actionEvent) {
+
+    }
+
+
 
     private String formatSize(long bytes) {
         if (bytes >= 1024 * 1024 * 1024) return String.format("%.2f GB", bytes / (1024.0 * 1024 * 1024));
