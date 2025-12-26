@@ -54,19 +54,48 @@
             </TableView>
         </VBox>
 
+<!--        <VBox spacing="10" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 1);">-->
+<!--            <HBox spacing="15" alignment="CENTER_LEFT">-->
+<!--                <Button text="👁 Xem chi tiết" onAction="#onViewFileDetails" styleClass="button, secondary" />-->
+<!--                <Region HBox.hgrow="ALWAYS" />-->
+<!--                <Button fx:id="btnDownload" text="⬇ Tải về" onAction="#onDownloadFile" styleClass="button" style="-fx-background-color: #2ecc71;" />-->
+<!--            </HBox>-->
+
+<!--            <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-background-color: #f7f9f9; -fx-padding: 8; -fx-background-radius: 5;">-->
+<!--                <Label text="Tiến trình:" style="-fx-font-weight: bold; -fx-text-fill: #7f8c8d;" />-->
+<!--                <ProgressBar fx:id="downloadProgress" prefWidth="250" progress="0.0" style="-fx-accent: #2ecc71;" />-->
+<!--                <Label fx:id="downloadStatusLabel" text="Sẵn sàng" style="-fx-text-fill: #2c3e50; -fx-font-style: italic;" />-->
+<!--            </HBox>-->
+<!--        </VBox>-->
+
         <VBox spacing="10" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 1);">
+
             <HBox spacing="15" alignment="CENTER_LEFT">
-                <Button text="👁 Xem chi tiết" onAction="#onViewFileDetails" styleClass="button, secondary" />
-                <Region HBox.hgrow="ALWAYS" />
-                <Button fx:id="btnDownload" text="⬇ Tải về" onAction="#onDownloadFile" styleClass="button" style="-fx-background-color: #2ecc71;" />
+                <Label text="Tiến trình:" style="-fx-font-weight: bold; -fx-text-fill: #95a5a6; -fx-font-size: 11px;" />
+                <ProgressBar fx:id="downloadProgress" prefWidth="400" progress="0.0" HBox.hgrow="ALWAYS" style="-fx-accent: #2ecc71;" />
+                <Label fx:id="downloadStatusLabel" text="Sẵn sàng" style="-fx-text-fill: #7f8c8d; -fx-font-style: italic; -fx-font-size: 11px;" minWidth="100" alignment="CENTER_RIGHT"/>
             </HBox>
 
-            <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-background-color: #f7f9f9; -fx-padding: 8; -fx-background-radius: 5;">
-                <Label text="Tiến trình:" style="-fx-font-weight: bold; -fx-text-fill: #7f8c8d;" />
-                <ProgressBar fx:id="downloadProgress" prefWidth="250" progress="0.0" style="-fx-accent: #2ecc71;" />
-                <Label fx:id="downloadStatusLabel" text="Sẵn sàng" style="-fx-text-fill: #2c3e50; -fx-font-style: italic;" />
+            <Separator />
+
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Button fx:id="btnDownload" text="⬇ Tải xuống" onAction="#onDownloadSelected"
+                        styleClass="button" style="-fx-background-color: #3498db; -fx-font-weight: bold;" />
+
+                <Button text="👁 Xem chi tiết" onAction="#onViewFileDetails" styleClass="button, secondary" />
+
+                <Region HBox.hgrow="ALWAYS" /> <Button fx:id="btnPause" text="⏸ Tạm dừng" onAction="#onPauseDownload" disable="true"
+                                                       styleClass="button, secondary" />
+
+                <Button fx:id="btnResume" text="▶ Tiếp tục" onAction="#onResumeDownload" disable="true"
+                        styleClass="button" style="-fx-background-color: #27ae60;" />
+
+                <Button fx:id="btnCancel" text="⏹ Hủy bỏ" onAction="#onCancelDownload" disable="true"
+                        styleClass="button, danger" />
             </HBox>
         </VBox>
+
+
 
     </VBox>
 </AnchorPane>
