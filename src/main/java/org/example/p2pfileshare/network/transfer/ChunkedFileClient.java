@@ -127,7 +127,7 @@ public class ChunkedFileClient {
             try {
                 if (control != null) control.checkpoint();
             } catch (InterruptedException e) {
-                // ✅ CANCEL: dọn file tạm
+                //  CANCEL: dọn file tạm
                 cleanupOnCancel(partFile, bitmapFile, metaFile);
                 return false;
             }
@@ -149,7 +149,7 @@ public class ChunkedFileClient {
 
         // 7) Verify whole file hash (final integrity)
         try {
-            if (control != null) control.checkpoint(); // ✅ trước khi verify
+            if (control != null) control.checkpoint(); //  trước khi verify
         } catch (InterruptedException e) {
             cleanupOnCancel(partFile, bitmapFile, metaFile);
             return false;
@@ -237,7 +237,7 @@ public class ChunkedFileClient {
                             continue;
                         }
 
-                        // ✅ checkpoint trước khi write (đúng yêu cầu)
+                        //  checkpoint trước khi write (đúng yêu cầu)
                         if (control != null) control.checkpoint();
 
                         long offset = (long) chunkIndex * meta.getChunkSize();

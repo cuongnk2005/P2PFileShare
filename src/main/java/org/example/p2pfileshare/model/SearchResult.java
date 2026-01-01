@@ -1,29 +1,25 @@
 package org.example.p2pfileshare.model;
 
 public class SearchResult {
+    private final String fileName;
+    private final long size;
+    private final String subject; // Môn học (nếu có logic phân loại)
+    private final PeerInfo owner; // Người sở hữu file
 
-    private String fileName;
-    private String subject;
-    private String ownerName;
-    private String peerIp;
-    private int peerPort;
-    private long size;
-
-    public SearchResult(String fileName, String subject, String ownerName,
-                        String peerIp, int peerPort, long size) {
+    public SearchResult(String fileName, long size, String subject, PeerInfo owner) {
         this.fileName = fileName;
-        this.subject = subject;
-        this.ownerName = ownerName;
-        this.peerIp = peerIp;
-        this.peerPort = peerPort;
         this.size = size;
+        this.subject = subject;
+        this.owner = owner;
     }
 
-    // ===== GETTERS =====
     public String getFileName() { return fileName; }
-    public String getSubject() { return subject; }
-    public String getOwnerName() { return ownerName; }
-    public String getPeerIp() { return peerIp; }
-    public int getPeerPort() { return peerPort; }
     public long getSize() { return size; }
+    public String getSubject() { return subject; }
+    public PeerInfo getOwner() { return owner; }
+
+    // Helper để hiển thị tên chủ sở hữu trên bảng
+    public String getOwnerName() {
+        return owner != null ? owner.getName() : "Unknown";
+    }
 }

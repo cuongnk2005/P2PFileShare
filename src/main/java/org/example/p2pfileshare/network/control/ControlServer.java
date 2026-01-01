@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Consumer;
 
@@ -17,23 +18,24 @@ public class ControlServer {
 
     private final int port;
     private volatile boolean running = false;
-    // NEW: Lưu PeerInfo theo peerId (chỉ peer đã ACCEPT)
-    private java.util.function.BiConsumer<String, String> onRenameTab;
 
     // Đã chấp nhận kết nối từ peerId nào
     private final Set<String> acceptedPeers = ConcurrentHashMap.newKeySet();
-
     private final Function<String, Boolean> onIncomingConnect;
 
     // Để trả danh sách file local
     private FileShareService fileShareService;
     private Runnable onPeerAccepted;
     private Runnable onUpdatePeerName;
-    // NEW: callback khi nhận DISCONNECT_NOTIFY từ remote (peer bị báo)
     private Consumer<ControlProtocol.ParsedMessage> onDisconnectNotify;
-
     // Callback nhận tin nhắn hệ thống
     private java.util.function.BiConsumer<String, String> onSystemMessageCallback;
+    // lưu PeerInfo với peerID, với các peer đã connect
+    private java.util.function.BiConsumer<String, String> onRenameTab;
+
+    // CALLBACK TÌM KIẾM
+    private BiConsumer<String, String> onSearchRequestReceived; // (SenderID, Keyword) -> Xử lý tìm và trả lời
+    private BiConsumer<String, String> onSearchResultReceived;  // (SenderID, Data)    -> Cập nhật UI
 
     public ControlServer(int port, Function<String, Boolean> onIncomingConnect) {
         this.port = port;
@@ -50,20 +52,25 @@ public class ControlServer {
         this.onSystemMessageCallback = callback;
     }
 
+    // SETTER CHO SEARCH
+    public void setOnSearchRequestReceived(BiConsumer<String, String> callback) {
+        this.onSearchRequestReceived = callback;
+    }
+    public void setOnSearchResultReceived(BiConsumer<String, String> callback) {
+        this.onSearchResultReceived = callback;
+    }
+
     public void start() {
         if (running) return;
         running = true;
 
-
         Thread t = new Thread(() -> {
             try (ServerSocket serverSocket = new ServerSocket(port)) {
                 System.out.println("[ControlServer] Listening on port " + port);
-
                 while (running) {
                     Socket client = serverSocket.accept();
                     handleClient(client);
                 }
-
             } catch (IOException e) {
                 if (running) {
                     e.printStackTrace();
@@ -79,19 +86,23 @@ public class ControlServer {
 
     public void stop() {
         running = false;
-        // Nếu cần, có thể mở 1 socket ảo vào chính mình để giải phóng accept()
+        // có thể mở 1 socket ảo vào chính mình để giải phóng accept()
     }
 
     private void handleClient(Socket socket) {
         Thread t = new Thread(() -> {
             try (Socket s = socket;
-                 BufferedReader reader = new BufferedReader(
-                         new InputStreamReader(s.getInputStream()))
-                 ;     PrintWriter writer = new PrintWriter(
-                    new OutputStreamWriter(s.getOutputStream()), true)) {
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(s.getInputStream()));
+                 PrintWriter writer = new PrintWriter(new OutputStreamWriter(s.getOutputStream()), true)) {
 
                 String raw = reader.readLine();
                 if (raw == null || raw.isEmpty()) return;
+
+                if (raw.startsWith("SEARCH_REQ|") || raw.startsWith("SEARCH_RES|")) {
+                    System.out.println("[ControlServer] Received Search CMD: " + raw);
+                    handleSearchCommand(raw);
+                    return;
+                }
 
                 if (raw.startsWith("CMD:")) {
                     System.out.println("[ControlServer] Received System CMD: " + raw);
@@ -143,8 +154,7 @@ public class ControlServer {
                         }
                     }
 
-                    String respCmd  = accept ? ControlProtocol.CONNECT_ACCEPT
-                            : ControlProtocol.CONNECT_REJECT;
+                    String respCmd  = accept ? ControlProtocol.CONNECT_ACCEPT : ControlProtocol.CONNECT_REJECT;
                     String respNote = accept ? "Accepted" : "Rejected";
 
                     // Lưu ý: từ phía server, fromPeer = "mình", toPeer = "người gửi request"
@@ -164,7 +174,6 @@ public class ControlServer {
                     String fromPeer = msg.fromPeer; // client
                     // CHẶN NẾU CHƯA ĐƯỢC ACCEPT
                     if (!acceptedPeers.contains(fromPeer)) {
-                        System.out.println("[ControlServer] DENY LIST_FILES from " + fromPeer);
                         String denyResp = ControlProtocol.build(
                                 ControlProtocol.LIST_FILES_RESPONSE,
                                 msg.toPeer,
@@ -176,7 +185,6 @@ public class ControlServer {
                     }
                     // Build payload TSV: fileName\trelativePath\tsize
                     String payload = buildFileListPayload();
-                    System.out.println("[DEBUG] Payload gửi đi:\n" + payload);
                     String resp = ControlProtocol.build(
                             ControlProtocol.LIST_FILES_RESPONSE,
                             toPeer,     // from = mình
@@ -204,7 +212,7 @@ public class ControlServer {
                             msg.toPeer, msg.fromPeer, "Disconnected"));
                     System.out.println("[ControlServer] Disconnected: " + fromPeer);
                 }
-                // NEW: xử lý thông báo DISCONNECT_NOTIFY nhận từ peer sever
+                // xử lý thông báo DISCONNECT_NOTIFY nhận từ peer sever
                 else if (ControlProtocol.DISCONNECT_NOTIFY.equals(msg.command)) {
                     System.out.println("[ControlServer] Received DISCONNECT_NOTIFY from " + msg.fromPeer
                             + " note=" + msg.note);
@@ -239,6 +247,31 @@ public class ControlServer {
         t.setDaemon(true);
         t.start();
     }
+
+    // XỬ LÝ LỆNH TÌM KIẾM
+    private void handleSearchCommand(String raw) {
+        // Format: SEARCH_REQ|SenderID|Keyword
+        // Format: SEARCH_RES|SenderID|FileData
+        String[] parts = raw.split("\\|", 3);
+        if (parts.length < 3) return;
+
+        String cmd = parts[0];
+        String senderId = parts[1];
+        String content = parts[2];
+
+        if ("SEARCH_REQ".equals(cmd)) {
+            // Có người hỏi -> Gọi callback để Root xử lý (tìm file & gửi trả)
+            if (onSearchRequestReceived != null) {
+                onSearchRequestReceived.accept(senderId, content);
+            }
+        } else if ("SEARCH_RES".equals(cmd)) {
+            // Có người trả lời -> Gọi callback để cập nhật bảng kết quả
+            if (onSearchResultReceived != null) {
+                onSearchResultReceived.accept(senderId, content);
+            }
+        }
+    }
+
     // build payload danh sách file được chia sẻ theo dạng 2A.docx	2A.docx	27084<NL>AI4life (2).docx	AI4life (2).docx	933162<NL>
     private String buildFileListPayload() {
         if (fileShareService == null) return "";
@@ -276,7 +309,7 @@ public class ControlServer {
     public void setOnRenameTab(java.util.function.BiConsumer<String, String> cb) {
         this.onRenameTab = cb;
     }
-    // NEW: setter để UI đăng ký listener khi nhận DISCONNECT_NOTIFY
+    // setter để UI đăng ký listener khi nhận DISCONNECT_NOTIFY
     public void setOnDisconnectNotify(Consumer<ControlProtocol.ParsedMessage> callback) {
         this.onDisconnectNotify = callback;
     }
@@ -301,7 +334,6 @@ public class ControlServer {
             w.println(msg);
             System.out.println("[ControlServer] Sent DISCONNECT_NOTIFY to " + peer.getIp());
             return true;
-
         } catch (IOException e) {
             // Even if the notification fails, the peer is still removed from the accepted list
             System.out.println("[ControlServer] Notify failed: " + e.getMessage());

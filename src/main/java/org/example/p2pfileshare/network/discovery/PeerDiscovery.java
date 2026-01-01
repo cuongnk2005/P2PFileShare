@@ -23,7 +23,6 @@ public class PeerDiscovery {
     private static volatile boolean responderRunning = false;
     private static volatile DatagramSocket responderSocket = null;
     private static Thread responderThread = null;
-
     // chế độ lắng nghe, sử dụng thread
     public static synchronized void startResponder(
             String myPeerId,
@@ -63,7 +62,7 @@ public class PeerDiscovery {
                 while (responderRunning) {
                     try {
                         DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                        socket.receive(packet); //  block ở đây
+                        socket.receive(packet); // ⛔ block ở đây
 
                         String msg = new String(packet.getData(), 0, packet.getLength()).trim();
                         if (!DISCOVER_MSG.equals(msg)) continue;
@@ -117,6 +116,7 @@ public class PeerDiscovery {
         List<PeerInfo> result = new ArrayList<>();
 
         try (DatagramSocket socket = new DatagramSocket()) {
+
             socket.setBroadcast(true);  // cho phép gửi broadcast
             socket.setSoTimeout(timeoutMillis); // timeout chỉ chờ trong 3s, quá thì thôi
 

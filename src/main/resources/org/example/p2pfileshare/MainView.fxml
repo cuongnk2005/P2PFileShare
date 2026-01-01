@@ -40,7 +40,6 @@
                  style="-fx-background-color: #f8f9fa;">
 
             <tabs>
-                <!-- TAB GỐC: KHÔNG CÓ DẤU X -->
                 <Tab text="🌐 Mạng LAN" closable="false">
                     <content>
                         <fx:include source="PeerTab.fxml" fx:id="peerTab" />
@@ -50,6 +49,12 @@
                 <Tab text="📂 Tài liệu chia sẻ" closable="false">
                     <content>
                         <fx:include source="ShareTab.fxml" fx:id="shareTab" />
+                    </content>
+                </Tab>
+
+                <Tab text="🔍 Tìm kiếm" closable="false">
+                    <content>
+                        <fx:include source="SearchTab.fxml" fx:id="searchTab" />
                     </content>
                 </Tab>
 
