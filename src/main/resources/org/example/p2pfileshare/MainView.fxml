@@ -63,7 +63,6 @@
                         <fx:include source="HistoryTab.fxml" fx:id="historyTab" />
                     </content>
                 </Tab>
-
                 <Tab text="📡 Kết nối đến" closable="false">
                     <content>
                         <fx:include source="IncomingConnectionTab.fxml" fx:id="incomingConnectionTab" />

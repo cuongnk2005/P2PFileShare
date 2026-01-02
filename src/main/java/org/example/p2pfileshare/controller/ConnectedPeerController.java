@@ -505,4 +505,3 @@ public class ConnectedPeerController {
     }
 
 }
-
