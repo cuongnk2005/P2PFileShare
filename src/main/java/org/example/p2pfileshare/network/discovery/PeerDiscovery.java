@@ -215,7 +215,6 @@ public class PeerDiscovery {
                     break;
                 }
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }

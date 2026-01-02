@@ -6,8 +6,8 @@ public class SharedFileLocal {
     private final String relativePath;
     private final String extension;// Đường dẫn tương đối trong thư mục chia sẻ
     private final long size;              // Dung lượng file
-    private final String subject;         // Chủ đề/môn học (optional)
-    private final String tags;            // Tags (optional)
+    private String subject;         // Chủ đề/môn học (optional)
+    private String tag;            // Tags (optional)
 
     private boolean visible;              // Có chia sẻ hay không
 
@@ -16,7 +16,7 @@ public class SharedFileLocal {
                            String extension,
                            long size,
                            String subject,
-                           String tags,
+                           String tag,
                            boolean visible) {
 
         this.fileName = fileName;
@@ -24,7 +24,7 @@ public class SharedFileLocal {
         this.size = size;
         this.extension = extension;
         this.subject = subject;
-        this.tags = tags;
+        this.tag = tag;
 
         this.visible = visible;
     }
@@ -33,8 +33,13 @@ public class SharedFileLocal {
     public String getFileName()        { return fileName; }
     public String getRelativePath()    { return relativePath; }
     public long getSize()              { return size; }
-    public String getSubject()         { return subject; }
-    public String getTags()            { return tags; }
+
+    public String getSubject() { return subject; }
+    public void setSubject(String subject) { this.subject = subject; }
+
+    public String getTag() { return tag; }
+    public void setTag(String tag) { this.tag = tag; }
+
     public boolean isVisible()         { return visible; }
     public String getExtension()       { return extension; }
     // ===== SETTERS =====

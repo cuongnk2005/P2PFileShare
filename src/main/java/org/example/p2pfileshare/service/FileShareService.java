@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.example.p2pfileshare.service.SimpleAIService;
 
 public class FileShareService {
 
@@ -22,6 +23,7 @@ public class FileShareService {
     private ChunkedFileServer fileServer; // dùng ChunkedFileServer để chia sẻ file
     private HistoryService historyService;
     private String myDisplayName;
+    private final SimpleAIService aiService = new SimpleAIService();
 
     public FileShareService(int fileServerPort, HistoryService historyService) {
         this.fileServerPort = fileServerPort;
@@ -73,51 +75,6 @@ public class FileShareService {
         return shareFolder;
     }
 
-    // tải file từ peer khác (client)
-//    public boolean download(PeerInfo peer, String relativePath, Path saveTo,
-//                           java.util.function.Consumer<Double> progressCallback) {
-//        boolean success = false;
-//        try {
-//            success = ChunkedFileClient.downloadFile(
-//                    peer.getIp(),
-//                    peer.getFileServerPort(),
-//                    relativePath,
-//                    saveTo,
-//                    progressCallback
-//            );
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            return false;
-//        }
-//
-//        System.out.println("Trạng thái download: " + success);
-//
-//        if (success) {
-//            try {
-//                // Lưu lịch sử tải xuống
-//                DownloadHistory history = new DownloadHistory(
-//                        saveTo.getFileName().toString(),
-//                        saveTo.toAbsolutePath().toString(),
-//                        peer.getName(),
-//                        peer.getIp(),
-//                        LocalDateTime.now()
-//                );
-//                historyService.addHistory(history);
-//                System.out.println("✓ Đã lưu lịch sử tải xuống: " + saveTo.getFileName());
-//            } catch (Exception e) {
-//                System.err.println("✗ Lỗi khi lưu lịch sử tải xuống:");
-//                e.printStackTrace();
-//            }
-//        }
-//
-//        return success;
-//    }
-
-    // Overload cũ để tương thích
-//    public boolean download(PeerInfo peer, String relativePath, Path saveTo) {
-//        return download(peer, relativePath, saveTo, null);
-//    }
-
     // lưu lịch sử download
     public List<DownloadHistory> listDownloadHistory() {
         return historyService.loadHistory();
@@ -133,7 +90,7 @@ public class FileShareService {
         if (files == null) return result;
 
         for (File f : files) {
-            if (f.isFile()) {
+            if (f.isFile() && !f.isHidden()) {
                 result.add(buildMetadata(f));
             }
         }
@@ -174,8 +131,8 @@ public class FileShareService {
             extension = fileName.substring(dot + 1).toLowerCase();
         }
 
-        String subject = detectSubject(folderNameOrFileName(f));
-        String tags = "Toán";
+        String subject = aiService.predictSubject(fileName);
+        String tags = aiService.predictTag(subject);
 
         return new SharedFileLocal(
                 fileName,
@@ -186,24 +143,6 @@ public class FileShareService {
                 tags,
                 true
         );
-    }
-
-    private String detectSubject(String name) {
-        name = name.toLowerCase();
-
-        if (name.contains("java") || name.contains("oop")) return "Java";
-        if (name.contains("network")) return "Network";
-        if (name.contains("os") || name.contains("process") || name.contains("thread")) return "Operating System";
-        if (name.contains("ai") || name.contains("machine")) return "AI";
-        if (name.contains("math")) return "Math";
-
-        return "Khác";
-    }
-
-    private String folderNameOrFileName(File f) {
-        File parent = f.getParentFile();
-        if (parent != null) return parent.getName() + " " + f.getName();
-        return f.getName();
     }
 
     public void setMyDisplayName(String myDisplayName) {

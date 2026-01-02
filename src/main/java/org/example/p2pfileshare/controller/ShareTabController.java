@@ -78,7 +78,9 @@ public class ShareTabController {
         });
 
         colSharedSubject.setCellValueFactory(new PropertyValueFactory<>("subject"));
-        colSharedTags.setCellValueFactory(new PropertyValueFactory<>("tags"));
+        if (colSharedTags != null) {
+            colSharedTags.setCellValueFactory(new PropertyValueFactory<>("tag"));
+        }
         colSharedVisibility.setCellValueFactory(new PropertyValueFactory<>("visible"));
         sharedFileTable.setItems(sharedFiles);
     }
@@ -139,27 +141,29 @@ public class ShareTabController {
     @FXML
     private void onRefreshSharedFiles() {
         refreshSharedFiles();
+
+        if (globalStatusLabel != null) {
+            globalStatusLabel.setText("Đã quét lại thư mục và cập nhật Tag.");
+        }
     }
 
     private void refreshSharedFiles() {
         List<SharedFileLocal> list = fileShareService.listSharedFiles(); // lấy danh sách file chia sẻ từ ổ cứng
         sharedFiles.setAll(list); // cập nhật lên bảng
+        sharedFileTable.refresh(); // làm mới bảng
     }
 
-    // Chưa implement add/remove
+    // Chưa implement add
     @FXML
     private void onAddSharedFile() {
-        Alert a = new Alert(Alert.AlertType.INFORMATION,
-                "Demo: thêm file vào thư mục chia sẻ bằng cách copy thủ công.");
-        a.showAndWait();
+        showSuccessDialog("Hướng dẫn", "Để thêm file, bạn chỉ cần copy file vào thư mục:\n" + shareFolderField.getText() + "\nSau đó bấm 'Quét lại'.");
     }
 
     @FXML
     private void onRemoveSharedFile() {
         SharedFileLocal selected = sharedFileTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            Alert a = new Alert(Alert.AlertType.INFORMATION, "Chưa chọn file để xóa.");
-            a.showAndWait();
+            showSuccessDialog("Thông báo", "Vui lòng chọn file để xóa.");
             return;
         }
 
@@ -180,7 +184,7 @@ public class ShareTabController {
                 refreshSharedFiles();
                 showSuccessDialog("Thành công", "Đã xóa file thành công!");
             } else {
-                new Alert(Alert.AlertType.ERROR, "Không thể xóa file (Có thể đang mở hoặc thiếu quyền).").showAndWait();
+                showConfirmDialog("Lỗi", "Không thể xóa file", "File đang được mở hoặc bạn không có quyền xóa.");
             }
         }
     }
@@ -196,26 +200,26 @@ public class ShareTabController {
 
     private boolean showConfirmDialog(String title, String header, String content) {
         try {
-            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
-                    getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
-            javafx.scene.Parent page = loader.load();
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            Parent page = loader.load();
 
             Stage dialogStage = new Stage();
-            dialogStage.initStyle(javafx.stage.StageStyle.UNDECORATED);
-            dialogStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            dialogStage.initStyle(StageStyle.UNDECORATED);
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
 
-            // Lấy window hiện tại làm chủ
             if (shareFolderField.getScene() != null) {
                 dialogStage.initOwner(shareFolderField.getScene().getWindow());
             }
 
-            javafx.scene.Scene scene = new javafx.scene.Scene(page);
-            dialogStage.setScene(scene);
+            dialogStage.setScene(new Scene(page));
 
             ConfirmationController controller = loader.getController();
             controller.setDialogStage(dialogStage);
-            controller.setContent(title, header, content, "Xóa ngay");
-            controller.setStyleDanger(); // Chuyển sang màu đỏ vì là xóa
+            controller.setContent(title, header, content, "Đồng ý"); // Nút mặc định hoặc set text tùy ý
+
+            if (title.contains("xóa") || title.contains("Lỗi")) {
+                controller.setStyleDanger();
+            }
 
             dialogStage.showAndWait();
             return controller.isConfirmed();
