@@ -2,18 +2,22 @@ package org.example.p2pfileshare.controller;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import org.example.p2pfileshare.model.SharedFileLocal;
 import org.example.p2pfileshare.network.control.ControlClient;
+import org.example.p2pfileshare.service.DocumentSummaryService;
 import org.example.p2pfileshare.service.FileShareService;
 import org.example.p2pfileshare.util.AppConfig;
 import org.example.p2pfileshare.model.PeerInfo;
@@ -47,6 +51,7 @@ public class ShareTabController {
     private PeerTabController peerTabController;
     private ControlClient controlClient;
     private PeerService peerService;
+    private final DocumentSummaryService documentSummaryService = new DocumentSummaryService();
 
     public void init(FileShareService fileShareService, Label globalStatusLabel, ControlClient controlClient, PeerTabController peerTabController) {
         this.fileShareService = fileShareService;
@@ -83,6 +88,72 @@ public class ShareTabController {
         }
         colSharedVisibility.setCellValueFactory(new PropertyValueFactory<>("visible"));
         sharedFileTable.setItems(sharedFiles);
+
+        sharedFileTable.setRowFactory(tv -> {
+            TableRow<SharedFileLocal> row = new TableRow<>();
+            ContextMenu contextMenu = new ContextMenu();
+
+            MenuItem summarizeItem = new MenuItem("✨ Tóm tắt nội dung (AI)");
+            summarizeItem.setStyle("-fx-font-weight: bold;");
+
+            summarizeItem.setOnAction(event -> {
+                SharedFileLocal selected = row.getItem();
+                if (selected != null) {
+                    onSummarizeFile(selected);
+                }
+            });
+
+            MenuItem deleteItem = new MenuItem("🗑 Xóa file");
+            deleteItem.setOnAction(event -> {
+                sharedFileTable.getSelectionModel().select(row.getItem());
+                onRemoveSharedFile();
+            });
+
+            contextMenu.getItems().addAll(summarizeItem, new SeparatorMenuItem(), deleteItem);
+
+
+            // Chỉ hiện menu khi dòng không rỗng
+            row.contextMenuProperty().bind(
+                    javafx.beans.binding.Bindings.when(row.emptyProperty())
+                            .then((ContextMenu) null)
+                            .otherwise(contextMenu)
+            );
+            return row;
+        });
+    }
+
+    private void onSummarizeFile(SharedFileLocal fileMeta) {
+        File readFile = new File(shareFolderField.getText(), fileMeta.getFileName());
+
+        if (!readFile.exists()) {
+            showSuccessDialog("Lỗi", "File không tồn tại trên ổ cứng.");
+            return;
+        }
+
+        // Hiện thông báo chờ
+        if (globalStatusLabel != null) globalStatusLabel.setText("🤖 AI đang đọc và tóm tắt file...");
+
+        // chay ngam
+        javafx.concurrent.Task<String> task = new javafx.concurrent.Task<>() {
+            @Override
+            protected String call() throws Exception {
+                return documentSummaryService.summarize(readFile);
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            if (globalStatusLabel != null) globalStatusLabel.setText("🤖 AI đã hoàn thành tóm tắt file.");
+            String summary = task.getValue();
+
+            showSummaryResultDialog(fileMeta.getFileName(), summary);
+        });
+
+        task.setOnFailed(e -> {
+            if (globalStatusLabel != null) globalStatusLabel.setText("🤖 AI không thể tóm tắt file.");
+            showSuccessDialog("Lỗi", "AI không thể tóm tắt file do lỗi xảy ra.");
+            e.getSource().getException().printStackTrace();
+        });
+        new Thread(task).start();
     }
 
     // Load thư mục chia sẻ đã lưu trong AppConfig
@@ -259,6 +330,32 @@ public class ShareTabController {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    // Hàm này dùng Alert chuẩn của JavaFX để có TextArea (Cho phép cuộn và copy text)
+    private void showSummaryResultDialog(String fileName, String summaryContent) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Kết quả Tóm tắt AI");
+        alert.setHeaderText("✨ Tóm tắt nội dung file: " + fileName);
+
+        // Tạo TextArea để chứa nội dung dài
+        TextArea textArea = new TextArea(summaryContent);
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+
+        // Chỉnh kích thước khung text
+        textArea.setMaxWidth(Double.MAX_VALUE);
+        textArea.setMaxHeight(Double.MAX_VALUE);
+        GridPane.setVgrow(textArea, Priority.ALWAYS);
+        GridPane.setHgrow(textArea, Priority.ALWAYS);
+
+        GridPane expContent = new GridPane();
+        expContent.setMaxWidth(Double.MAX_VALUE);
+        expContent.add(textArea, 0, 1);
+
+        // Set vào Alert
+        alert.getDialogPane().setContent(expContent);
+        alert.showAndWait();
     }
 
     // hàm format size của file
