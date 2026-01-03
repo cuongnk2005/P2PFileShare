@@ -57,7 +57,7 @@ public class DocumentSummaryService {
         try (PDDocument document = PDDocument.load(file)) {
             PDFTextStripper stripper = new PDFTextStripper();
 
-            stripper.setEndPage(7); // chi doc toi da 7 trang
+            stripper.setEndPage(10); // chi doc toi da 10 trang
             return stripper.getText(document);
         }
     }

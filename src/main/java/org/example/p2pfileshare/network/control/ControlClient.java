@@ -165,6 +165,30 @@ public class ControlClient {
         }
     }
 
+    public String sendSummarizeRequest(PeerInfo peer, String relativePath) {
+        if (peer == null) return null;
+        System.out.println("[ControlClient] Gửi yêu cầu AI Summary (Sync) tới " + peer.getName());
+        try (Socket socket = new Socket(peer.getIp(), peer.getControlPort());
+             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true)) {
+
+            // 1. Gửi yêu cầu
+            // Format: SUMMARIZE_REQ | ID_Của_Tôi | Đường_dẫn_file
+            String cmd = "SUMMARIZE_REQ|" + myPeerId + "|" + relativePath;
+            writer.println(cmd);
+
+            // 2. GIỮ MÁY CHỜ TRẢ LỜI (Đây là bước quan trọng còn thiếu)
+            // Server bên kia sẽ xử lý mất khoảng 1-2 giây rồi gửi lại
+            String response = reader.readLine();
+
+            System.out.println("[ControlClient] Nhận phản hồi: " + response);
+            return response;
+        } catch (IOException e) {
+            System.err.println("Lỗi khi yêu cầu tóm tắt: " + e.getMessage());
+            return null;
+        }
+    }
+
     // gửi yêu cầu tìm kiếm file
     public void sendSearchRequest(PeerInfo peer, String keyword) {
         if (peer == null) return;
@@ -182,18 +206,6 @@ public class ControlClient {
         sendSystemCommand(peer, command);
     }
 
-    // DTO đơn giản cho UI
-    public static class RemoteFile {
-        public final String name;
-        public final String relativePath;
-        public final long size;
-        public RemoteFile(String name, String relativePath, long size) {
-            this.name = name;
-            this.relativePath = relativePath;
-            this.size = size;
-        }
-    }
-
     // Hai hàm dưới này là "notify 1 chiều" – hiện tại chưa dùng,
     // nhưng để sẵn nếu sau này muốn gửi ACCEPT/REJECT trên connection khác.
 
@@ -207,16 +219,18 @@ public class ControlClient {
                 ControlProtocol.build(ControlProtocol.CONNECT_REJECT, myPeerId, toPeer, reason));
     }
 
-    private void sendOneWay(String host, int port, String msg) {
+    private boolean sendOneWay(String host, int port, String msg) {
         try (Socket socket = new Socket(host, port);
              PrintWriter writer = new PrintWriter(
                      new OutputStreamWriter(socket.getOutputStream()), true)) {
 
             writer.println(msg);
             System.out.println("[ControlClient] One-way send: " + msg);
+            return true;
 
         } catch (IOException e) {
             e.printStackTrace();
+            return false;
         }
     }
 
@@ -234,18 +248,7 @@ public class ControlClient {
         System.out.println("[ControlClient] Sending System Cmd to " + peer.getName() + ": " + finalMsg);
         sendOneWay(peer.getIp(), peer.getControlPort(), finalMsg);
     }
-//
-//    private void handleDisconnectNotifyClient(ControlProtocol.ParsedMessage msg) {
-//        System.out.println("[ControlClient] Disconnect notify received: " + msg.note);
-////        String disconnectorName = msg.note != null ? msg.note : "Unknown";
-////        Platform.runLater(() -> {
-////            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-////            alert.setTitle("Ngắt kết nối");
-////            alert.setHeaderText("ngắt kết nối thành công");
-////            alert.setContentText(disconnectorName);
-////            alert.showAndWait();
-////        });
-//    }
+
     public void broadcastUpdateName(List<PeerInfo> connectedPeers, String newName) {
         if (connectedPeers == null || connectedPeers.isEmpty()) {
             return;
@@ -284,6 +287,18 @@ public class ControlClient {
 
     public List<String> getPeerIdList() {
         return peerIdList;
+    }
+
+    // DTO đơn giản cho UI
+    public static class RemoteFile {
+        public final String name;
+        public final String relativePath;
+        public final long size;
+        public RemoteFile(String name, String relativePath, long size) {
+            this.name = name;
+            this.relativePath = relativePath;
+            this.size = size;
+        }
     }
 
 }

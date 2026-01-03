@@ -1,18 +1,22 @@
 package org.example.p2pfileshare.network.control;
 
 import org.example.p2pfileshare.model.PeerInfo;
+import org.example.p2pfileshare.service.DocumentSummaryService;
 import org.example.p2pfileshare.service.FileShareService;
 
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Consumer;
+
+import static java.lang.System.out;
 
 public class ControlServer {
 
@@ -37,10 +41,11 @@ public class ControlServer {
     private BiConsumer<String, String> onSearchRequestReceived; // (SenderID, Keyword) -> Xử lý tìm và trả lời
     private BiConsumer<String, String> onSearchResultReceived;  // (SenderID, Data)    -> Cập nhật UI
 
+    private final DocumentSummaryService summaryService = new DocumentSummaryService();
+
     public ControlServer(int port, Function<String, Boolean> onIncomingConnect) {
         this.port = port;
         this.onIncomingConnect = onIncomingConnect;
-
     }
 
     // Cho phép inject FileShareService để phục vụ LIST_FILES
@@ -66,20 +71,16 @@ public class ControlServer {
 
         Thread t = new Thread(() -> {
             try (ServerSocket serverSocket = new ServerSocket(port)) {
-                System.out.println("[ControlServer] Listening on port " + port);
+                out.println("[ControlServer] Listening on port " + port);
                 while (running) {
                     Socket client = serverSocket.accept();
                     handleClient(client);
                 }
             } catch (IOException e) {
-                if (running) {
-                    e.printStackTrace();
-                } else {
-                    System.out.println("[ControlServer] Stopped");
-                }
+                if (running) e.printStackTrace();
+                else out.println("[ControlServer] Stopped");
             }
         }, "control-server");
-
         t.setDaemon(true);
         t.start();
     }
@@ -99,13 +100,41 @@ public class ControlServer {
                 if (raw == null || raw.isEmpty()) return;
 
                 if (raw.startsWith("SEARCH_REQ|") || raw.startsWith("SEARCH_RES|")) {
-                    System.out.println("[ControlServer] Received Search CMD: " + raw);
+                    out.println("[ControlServer] Received Search CMD: " + raw);
                     handleSearchCommand(raw);
                     return;
                 }
 
+                if(raw.startsWith("SUMMARIZE_REQ|")) {
+                    out.println("[ControlServer] Received AI Summary REQ: " + raw);
+
+                    // Format: SUMMARIZE_REQ | SenderID | Path
+                    String[] parts = raw.split("\\|", 3);
+                    if (parts.length >= 3) {
+                        String path = parts[2];
+
+                        File fileToSummarize = new File(fileShareService.getShareFolder(), path);
+                        String result;
+
+                        if (fileToSummarize.exists()) {
+                            try {
+                                result = summaryService.summarize(fileToSummarize);
+                            } catch (Exception e) {
+                                result = "Lỗi khi đọc file: " + e.getMessage();
+                            }
+                        } else {
+                            result = "File không tồn tại bên phía Peer.";
+                        }
+                        String encodeResult = Base64.getEncoder().encodeToString(result.getBytes());
+                        String response = "SUMMARIZE_RES|" + path + "|" + encodeResult;
+                        writer.println(response);
+                        out.println("[ControlServer] Sent AI Result (" + result.length() + " chars)");
+                    }
+                    return;
+                }
+
                 if (raw.startsWith("CMD:")) {
-                    System.out.println("[ControlServer] Received System CMD: " + raw);
+                    out.println("[ControlServer] Received System CMD: " + raw);
 
                     String[] parts = raw.split("\\|");
                     // parts[0] = CMD:REMOVE_FILE
@@ -130,7 +159,7 @@ public class ControlServer {
                 ControlProtocol.ParsedMessage msg = ControlProtocol.parse(raw);
                 if (msg == null) return;
 
-                System.out.println("[ControlServer] Received: " + raw);
+                out.println("[ControlServer] Received: " + raw);
 
                 if (ControlProtocol.CONNECT_REQUEST.equals(msg.command)) {
                     String fromPeer = msg.fromPeer; // người yêu cầu
@@ -142,14 +171,12 @@ public class ControlServer {
                             accept = Boolean.TRUE.equals(onIncomingConnect.apply(namespace));
                             if (accept) {
                                 acceptedPeers.add(fromPeer);
-
                                 // load lại danh sách incomming connection để cập nhật danh sách
                                 if (onPeerAccepted != null) {
                                     onPeerAccepted.run();
                                 }
                             }
                         } catch (Exception ex) {
-                            ex.printStackTrace();
                             accept = false;
                         }
                     }
@@ -166,7 +193,7 @@ public class ControlServer {
                     );
 
                     writer.println(resp);
-                    System.out.println("[ControlServer] Sent: " + resp);
+                    out.println("[ControlServer] Sent: " + resp);
                 }
                 else if (ControlProtocol.LIST_FILES.equals(msg.command)) {
                     // Trả về danh sách file chia sẻ (tên/relative path)
@@ -193,7 +220,7 @@ public class ControlServer {
                     );
 
                     writer.println(resp);
-                    System.out.println("[ControlServer] Sent LIST_FILES_RESPONSE (" + payload.length() + " bytes)");
+                    out.println("[ControlServer] Sent LIST_FILES_RESPONSE (" + payload.length() + " bytes)");
                 }
                 else if (ControlProtocol.DISCONNECT_REQUEST.equals(msg.command)) {
                     String fromPeer = msg.fromPeer; // người yêu cầu ngắt (mình) hoặc client
@@ -210,11 +237,11 @@ public class ControlServer {
 //                // Gửi phản hồi DISCONNECT_NOTIFY cho client bt là ok đã ngắt
                     writer.println(ControlProtocol.build(ControlProtocol.DISCONNECT_NOTIFY,
                             msg.toPeer, msg.fromPeer, "Disconnected"));
-                    System.out.println("[ControlServer] Disconnected: " + fromPeer);
+                    out.println("[ControlServer] Disconnected: " + fromPeer);
                 }
                 // xử lý thông báo DISCONNECT_NOTIFY nhận từ peer sever
                 else if (ControlProtocol.DISCONNECT_NOTIFY.equals(msg.command)) {
-                    System.out.println("[ControlServer] Received DISCONNECT_NOTIFY from " + msg.fromPeer
+                    out.println("[ControlServer] Received DISCONNECT_NOTIFY from " + msg.fromPeer
                             + " note=" + msg.note);
                     // Gọi callback nếu đã đăng ký để UI xử lý hiển alert thông báo ở root
                     if (onDisconnectNotify != null) {
@@ -229,7 +256,7 @@ public class ControlServer {
                 //server gửi gói tin và server ở client nhận hàm này để cập nhật tên peer
                 else if (ControlProtocol.UPDATE_NAMESERVER.equals(msg.command)) {
                     // to peer ở đây t co cai là name mới
-                    System.out.println("[ControlServer] Received UPDATE_NAME from " + msg.fromPeer +"va name mới"+ msg.toPeer);
+                    out.println("[ControlServer] Received UPDATE_NAME from " + msg.fromPeer +"va name mới"+ msg.toPeer);
 
                     if (onUpdatePeerName != null) {
                         onUpdatePeerName.run();
@@ -332,11 +359,11 @@ public class ControlServer {
             );
 
             w.println(msg);
-            System.out.println("[ControlServer] Sent DISCONNECT_NOTIFY to " + peer.getIp());
+            out.println("[ControlServer] Sent DISCONNECT_NOTIFY to " + peer.getIp());
             return true;
         } catch (IOException e) {
             // Even if the notification fails, the peer is still removed from the accepted list
-            System.out.println("[ControlServer] Notify failed: " + e.getMessage());
+            out.println("[ControlServer] Notify failed: " + e.getMessage());
             return false;
         }
     }

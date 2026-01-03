@@ -18,6 +18,8 @@ import java.io.File;
 import java.nio.file.Path;
 import javafx.util.Duration;
 import java.util.List;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 import javafx.application.Platform;
 
 public class ConnectedPeerController {
@@ -42,7 +44,7 @@ public class ConnectedPeerController {
     private ControlClient controlClient;
     private FileShareService fileShareService;
 
-    // NEW: callback được PeerTabController đăng ký để biết khi tab này đã ngắt kết nối thành công
+    // callback được PeerTabController đăng ký để biết khi tab này đã ngắt kết nối thành công
     private Runnable onDisconnectedCallback;
 
     public void init(PeerInfo peer, ControlClient controlClient, FileShareService fileShareService) {
@@ -123,8 +125,8 @@ public class ConnectedPeerController {
 
     private void setupContextMenu() {
         ContextMenu contextMenu = new ContextMenu();
-
-        MenuItem downloadItem = new MenuItem("Tải xuống");
+        MenuItem downloadItem = new MenuItem("⬇ Tải xuống");
+        downloadItem.setStyle("-fx-font-weight: bold; -fx-text-fill: #8e44ad;");
         downloadItem.setOnAction(e -> {
             Row selected = fileTable.getSelectionModel().getSelectedItem();
             if (selected != null) {
@@ -132,7 +134,16 @@ public class ConnectedPeerController {
             }
         });
 
-        contextMenu.getItems().add(downloadItem);
+        MenuItem summarizeItem = new MenuItem("✨ Tóm tắt file");
+        summarizeItem.setStyle("-fx-font-weight: bold; -fx-text-fill: #8e44ad;");
+        summarizeItem.setOnAction(e -> {
+            Row selected = fileTable.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                requestRemoteSummary(selected);
+            }
+        });
+
+        contextMenu.getItems().addAll(downloadItem, summarizeItem);
 
         // Chỉ hiển thị menu khi có item được chọn
         fileTable.setContextMenu(contextMenu);
@@ -148,6 +159,68 @@ public class ConnectedPeerController {
             });
             return row;
         });
+    }
+
+    private void requestRemoteSummary(Row row) {
+        statusLabel.setText("⏳ Đang yêu cầu Peer " + peer.getName() + " tóm tắt file: " + row.getName() + "...");
+
+        new Thread(() -> {
+            String rawResponse = controlClient.sendSummarizeRequest(peer, row.getRelativePath());
+
+            Platform.runLater(() -> {
+                if (rawResponse != null && rawResponse.startsWith("SUMMARIZE_RES|")) {
+                    // Phân tích kết quả
+                    String[] parts = rawResponse.split("\\|", 3);
+                    if (parts.length >= 3) {
+                        String fileName = parts[1];
+                        String rawContent = parts[2].trim();
+
+                        // [DEBUG] In ra để xem Server gửi cái gì
+                        System.out.println("DEBUG - Raw Response: " + rawContent);
+
+                        try {
+                            // Giải mã Base64 về van bản gốc
+                            byte[] decodedBytes = Base64.getDecoder().decode(rawContent);
+                            String finalContent = new String(decodedBytes, StandardCharsets.UTF_8);
+
+                            statusLabel.setText("✅ Đã nhận được tóm tắt!");
+
+                            // Hiển thị Dialog (Copy hàm showSummaryResultDialog từ bài trước vào file này nếu chưa có)
+                            showSummaryResultDialog(fileName, finalContent);
+                        } catch (IllegalArgumentException e) {
+//                            statusLabel.setText("❌ Lỗi giải mã nội dung.");
+//                            e.printStackTrace();
+                            // [FALLBACK] Nếu giải mã lỗi -> Server đang gửi Text thường (chưa update code)
+                            // Ta hiển thị luôn text đó thay vì báo lỗi
+                            System.err.println("Lỗi giải mã Base64 (Có thể Server gửi text thường): " + e.getMessage());
+
+                            // Khôi phục <br> thành xuống dòng (cho code cũ)
+                            String fallbackContent = rawContent.replace("<br>", "\n");
+
+                            statusLabel.setText("⚠️ Nội dung chưa được mã hóa");
+                            showSummaryResultDialog(fileName, fallbackContent + "\n\n(Lưu ý: Peer bên kia chưa cập nhật tính năng mã hóa an toàn)");
+                        }
+                    }
+                } else {
+                    statusLabel.setText("❌ Không nhận được phản hồi hoặc lỗi.");
+                    Alert alert = new Alert(Alert.AlertType.ERROR, "Peer không phản hồi hoặc file không tồn tại.");
+                    alert.showAndWait();
+                }
+            });
+        }).start();
+    }
+
+    public void receivedMessage(String message) {
+        if (message == null) return;
+
+        if (message.startsWith("CMD:REMOVE_FILE|")) {
+            String[] parts = message.split("\\|");
+            if (parts.length >= 2) {
+                String fileNameToRemove = parts[1];
+
+                Platform.runLater(() -> removeFileFromList(fileNameToRemove));
+            }
+        }
     }
 
     @FXML
@@ -273,19 +346,26 @@ public class ConnectedPeerController {
         this.onDisconnectedCallback = callback;
     }
 
-    public void receivedMessage(String message) {
-        if (message == null) return;
+    private void showSummaryResultDialog(String fileName, String summaryContent) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Kết quả Tóm tắt AI (Từ xa)");
+        alert.setHeaderText("Peer " + peer.getName() + " đã tóm tắt file: " + fileName);
 
-        if (message.startsWith("CMD:REMOVE_FILE|")) {
-            String[] parts = message.split("\\|");
-            if (parts.length >= 2) {
-                String fileNameToRemove = parts[1];
+        TextArea textArea = new TextArea(summaryContent);
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+        textArea.setMaxWidth(Double.MAX_VALUE);
+        textArea.setMaxHeight(Double.MAX_VALUE);
 
-                Platform.runLater(() -> {
-                    removeFileFromList(fileNameToRemove);
-                });
-            }
-        }
+        javafx.scene.layout.GridPane.setVgrow(textArea, javafx.scene.layout.Priority.ALWAYS);
+        javafx.scene.layout.GridPane.setHgrow(textArea, javafx.scene.layout.Priority.ALWAYS);
+
+        javafx.scene.layout.GridPane expContent = new javafx.scene.layout.GridPane();
+        expContent.setMaxWidth(Double.MAX_VALUE);
+        expContent.add(textArea, 0, 1);
+
+        alert.getDialogPane().setContent(expContent);
+        alert.showAndWait();
     }
 
     private void removeFileFromList(String fileName) {
