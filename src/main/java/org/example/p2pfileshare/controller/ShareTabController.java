@@ -34,26 +34,34 @@ public class ShareTabController {
 
     private static final String KEY_SHARE_DIR = "shared_folder";
 
-    @FXML private TextField shareFolderField;
+    @FXML
+    private TextField shareFolderField;
 
     // TableView dùng SharedFileLocal
-    @FXML private TableView<SharedFileLocal> sharedFileTable;
-    @FXML private TableColumn<SharedFileLocal, String> colSharedName;
-    @FXML private TableColumn<SharedFileLocal, String> colSharedType;
-    @FXML private TableColumn<SharedFileLocal, Long>   colSharedSize;
-    @FXML private TableColumn<SharedFileLocal, String> colSharedSubject;
-    @FXML private TableColumn<SharedFileLocal, String> colSharedTags;
-    @FXML private TableColumn<SharedFileLocal, Boolean> colSharedVisibility;
+    @FXML
+    private TableView<SharedFileLocal> sharedFileTable;
+    @FXML
+    private TableColumn<SharedFileLocal, String> colSharedName;
+    @FXML
+    private TableColumn<SharedFileLocal, String> colSharedType;
+    @FXML
+    private TableColumn<SharedFileLocal, Long> colSharedSize;
+    @FXML
+    private TableColumn<SharedFileLocal, String> colSharedSubject;
+    @FXML
+    private TableColumn<SharedFileLocal, String> colSharedTags;
+    @FXML
+    private TableColumn<SharedFileLocal, Boolean> colSharedVisibility;
 
-    private final ObservableList<SharedFileLocal> sharedFiles =
-            FXCollections.observableArrayList();
+    private final ObservableList<SharedFileLocal> sharedFiles = FXCollections.observableArrayList();
 
     private PeerTabController peerTabController;
     private ControlClient controlClient;
     private PeerService peerService;
     private final DocumentSummaryService documentSummaryService = new DocumentSummaryService();
 
-    public void init(FileShareService fileShareService, Label globalStatusLabel, ControlClient controlClient, PeerTabController peerTabController) {
+    public void init(FileShareService fileShareService, Label globalStatusLabel, ControlClient controlClient,
+            PeerTabController peerTabController) {
         this.fileShareService = fileShareService;
         this.globalStatusLabel = globalStatusLabel;
         this.controlClient = controlClient;
@@ -111,13 +119,11 @@ public class ShareTabController {
 
             contextMenu.getItems().addAll(summarizeItem, new SeparatorMenuItem(), deleteItem);
 
-
             // Chỉ hiện menu khi dòng không rỗng
             row.contextMenuProperty().bind(
                     javafx.beans.binding.Bindings.when(row.emptyProperty())
                             .then((ContextMenu) null)
-                            .otherwise(contextMenu)
-            );
+                            .otherwise(contextMenu));
             return row;
         });
     }
@@ -131,7 +137,8 @@ public class ShareTabController {
         }
 
         // Hiện thông báo chờ
-        if (globalStatusLabel != null) globalStatusLabel.setText("🤖 AI đang đọc và tóm tắt file...");
+        if (globalStatusLabel != null)
+            globalStatusLabel.setText("🤖 AI đang đọc và tóm tắt file...");
 
         // chay ngam
         javafx.concurrent.Task<String> task = new javafx.concurrent.Task<>() {
@@ -142,14 +149,16 @@ public class ShareTabController {
         };
 
         task.setOnSucceeded(e -> {
-            if (globalStatusLabel != null) globalStatusLabel.setText("🤖 AI đã hoàn thành tóm tắt file.");
+            if (globalStatusLabel != null)
+                globalStatusLabel.setText("🤖 AI đã hoàn thành tóm tắt file.");
             String summary = task.getValue();
 
             showSummaryResultDialog(fileMeta.getFileName(), summary);
         });
 
         task.setOnFailed(e -> {
-            if (globalStatusLabel != null) globalStatusLabel.setText("🤖 AI không thể tóm tắt file.");
+            if (globalStatusLabel != null)
+                globalStatusLabel.setText("🤖 AI không thể tóm tắt file.");
             showSuccessDialog("Lỗi", "AI không thể tóm tắt file do lỗi xảy ra.");
             e.getSource().getException().printStackTrace();
         });
@@ -166,7 +175,6 @@ public class ShareTabController {
             }
         }
     }
-
 
     private void applyShareFolder(File dir) {
         shareFolderField.setText(dir.getAbsolutePath());
@@ -187,16 +195,17 @@ public class ShareTabController {
         String last = AppConfig.load(KEY_SHARE_DIR);
         if (last != null) {
             File prev = new File(last);
-            if (prev.isDirectory()) chooser.setInitialDirectory(prev);
+            if (prev.isDirectory())
+                chooser.setInitialDirectory(prev);
         }
 
         Stage stage = (Stage) shareFolderField.getScene().getWindow();
-        File dir = chooser.showDialog(stage);   // show dialog
+        File dir = chooser.showDialog(stage); // show dialog
 
         if (dir != null) {
             shareFolderField.setText(dir.getAbsolutePath());
             AppConfig.save(KEY_SHARE_DIR, dir.getAbsolutePath()); // lưu cấu hình
-            fileShareService.setShareFolder(dir);  // áp dụng thư mục chia sẻ
+            fileShareService.setShareFolder(dir); // áp dụng thư mục chia sẻ
 
             refreshSharedFiles();
 
@@ -204,7 +213,6 @@ public class ShareTabController {
                 globalStatusLabel.setText("Thư mục chia sẻ: " + dir.getName());
             }
         }
-
 
     }
 
@@ -227,7 +235,8 @@ public class ShareTabController {
     // Chưa implement add
     @FXML
     private void onAddSharedFile() {
-        showSuccessDialog("Hướng dẫn", "Để thêm file, bạn chỉ cần copy file vào thư mục:\n" + shareFolderField.getText() + "\nSau đó bấm 'Quét lại'.");
+        showSuccessDialog("Hướng dẫn", "Để thêm file, bạn chỉ cần copy file vào thư mục:\n" + shareFolderField.getText()
+                + "\nSau đó bấm 'Quét lại'.");
     }
 
     @FXML
@@ -241,8 +250,7 @@ public class ShareTabController {
         boolean confirmed = showConfirmDialog(
                 "🗑 Xác nhận xóa",
                 "Xóa file: " + selected.getFileName() + "?",
-                "Hành động này sẽ xóa file khỏi ổ cứng vĩnh viễn."
-        );
+                "Hành động này sẽ xóa file khỏi ổ cứng vĩnh viễn.");
 
         if (confirmed) {
             // Lấy đường dẫn file thật
@@ -271,7 +279,8 @@ public class ShareTabController {
 
     private boolean showConfirmDialog(String title, String header, String content) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
             Parent page = loader.load();
 
             Stage dialogStage = new Stage();
@@ -303,7 +312,8 @@ public class ShareTabController {
 
     private void showSuccessDialog(String header, String content) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/org/example/p2pfileshare/ConfirmationDialog.fxml"));
             Parent page = loader.load();
 
             Stage dialogStage = new Stage();
@@ -332,30 +342,47 @@ public class ShareTabController {
         }
     }
 
-    // Hàm này dùng Alert chuẩn của JavaFX để có TextArea (Cho phép cuộn và copy text)
     private void showSummaryResultDialog(String fileName, String summaryContent) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Kết quả Tóm tắt AI");
-        alert.setHeaderText("✨ Tóm tắt nội dung file: " + fileName);
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/org/example/p2pfileshare/SummaryResultDialog.fxml"));
+            Parent page = loader.load();
 
-        // Tạo TextArea để chứa nội dung dài
-        TextArea textArea = new TextArea(summaryContent);
-        textArea.setEditable(false);
-        textArea.setWrapText(true);
+            Stage dialogStage = new Stage();
+            dialogStage.initStyle(StageStyle.UNDECORATED);
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
 
-        // Chỉnh kích thước khung text
-        textArea.setMaxWidth(Double.MAX_VALUE);
-        textArea.setMaxHeight(Double.MAX_VALUE);
-        GridPane.setVgrow(textArea, Priority.ALWAYS);
-        GridPane.setHgrow(textArea, Priority.ALWAYS);
+            if (sharedFileTable.getScene() != null) {
+                dialogStage.initOwner(sharedFileTable.getScene().getWindow());
+            }
 
-        GridPane expContent = new GridPane();
-        expContent.setMaxWidth(Double.MAX_VALUE);
-        expContent.add(textArea, 0, 1);
+            dialogStage.setScene(new Scene(page));
 
-        // Set vào Alert
-        alert.getDialogPane().setContent(expContent);
-        alert.showAndWait();
+            SummaryResultController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+            controller.setContent(fileName, summaryContent);
+
+            dialogStage.showAndWait();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            // Fallback nếu không load được FXML
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Kết quả Tóm tắt AI");
+            alert.setHeaderText("✨ Tóm tắt nội dung file: " + fileName);
+            TextArea textArea = new TextArea(summaryContent);
+            textArea.setEditable(false);
+            textArea.setWrapText(true);
+            textArea.setMaxWidth(Double.MAX_VALUE);
+            textArea.setMaxHeight(Double.MAX_VALUE);
+            GridPane.setVgrow(textArea, Priority.ALWAYS);
+            GridPane.setHgrow(textArea, Priority.ALWAYS);
+            GridPane expContent = new GridPane();
+            expContent.setMaxWidth(Double.MAX_VALUE);
+            expContent.add(textArea, 0, 1);
+            alert.getDialogPane().setContent(expContent);
+            alert.showAndWait();
+        }
     }
 
     // hàm format size của file

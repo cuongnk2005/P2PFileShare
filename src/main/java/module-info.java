@@ -11,6 +11,7 @@ module org.example.p2pfileshare {
     requires com.google.gson;
     requires org.apache.pdfbox;
     requires org.apache.poi.ooxml;
+    requires javafx.graphics;
 
     exports org.example.p2pfileshare;
     exports org.example.p2pfileshare.controller;

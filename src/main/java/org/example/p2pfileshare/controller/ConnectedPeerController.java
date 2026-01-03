@@ -21,22 +21,40 @@ import java.util.List;
 import java.util.Base64;
 import java.nio.charset.StandardCharsets;
 import javafx.application.Platform;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.paint.Color;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
+import javafx.stage.Modality;
 
 public class ConnectedPeerController {
 
-    @FXML private Label peerNameLabel;
-    @FXML private TableView<Row> fileTable;
-    @FXML private TableColumn<Row, String> colName;
-    @FXML private TableColumn<Row, String> colRelative;
-    @FXML private TableColumn<Row, Long>   colSize;
+    @FXML
+    private Label peerNameLabel;
+    @FXML
+    private TableView<Row> fileTable;
+    @FXML
+    private TableColumn<Row, String> colName;
+    @FXML
+    private TableColumn<Row, String> colRelative;
+    @FXML
+    private TableColumn<Row, Long> colSize;
 
-    @FXML private ProgressBar progress;
-    @FXML private Label statusLabel;
+    @FXML
+    private ProgressBar progress;
+    @FXML
+    private Label statusLabel;
 
-    @FXML private Button btnDownload;
-    @FXML private Button btnPause;
-    @FXML private Button btnResume;
-    @FXML private Button btnCancel;
+    @FXML
+    private Button btnDownload;
+    @FXML
+    private Button btnPause;
+    @FXML
+    private Button btnResume;
+    @FXML
+    private Button btnCancel;
 
     private final ObservableList<Row> rows = FXCollections.observableArrayList();
     private DownloadJob currentJob;
@@ -44,7 +62,8 @@ public class ConnectedPeerController {
     private ControlClient controlClient;
     private FileShareService fileShareService;
 
-    // callback được PeerTabController đăng ký để biết khi tab này đã ngắt kết nối thành công
+    // callback được PeerTabController đăng ký để biết khi tab này đã ngắt kết nối
+    // thành công
     private Runnable onDisconnectedCallback;
 
     public void init(PeerInfo peer, ControlClient controlClient, FileShareService fileShareService) {
@@ -77,6 +96,7 @@ public class ConnectedPeerController {
         // nạp lần đầu
         reload();
     }
+
     @FXML
     private void onPauseDownload() {
         if (currentJob == null) {
@@ -85,8 +105,10 @@ public class ConnectedPeerController {
         }
         currentJob.pause();
         statusLabel.setText("Đã tạm dừng");
-        if (btnPause != null) btnPause.setDisable(true);      // Mở nút Pause
-        if (btnResume != null) btnResume.setDisable(false);     // Khóa nút Resume
+        if (btnPause != null)
+            btnPause.setDisable(true); // Mở nút Pause
+        if (btnResume != null)
+            btnResume.setDisable(false); // Khóa nút Resume
 
     }
 
@@ -98,8 +120,10 @@ public class ConnectedPeerController {
         }
         currentJob.resume();
         statusLabel.setText("Đang tiếp tục tải...");
-        if (btnPause != null) btnPause.setDisable(false);      // Mở nút Pause
-        if (btnResume != null) btnResume.setDisable(true);     // Khóa nút Resume
+        if (btnPause != null)
+            btnPause.setDisable(false); // Mở nút Pause
+        if (btnResume != null)
+            btnResume.setDisable(true); // Khóa nút Resume
 
     }
 
@@ -113,7 +137,8 @@ public class ConnectedPeerController {
 
         PauseTransition delay = new PauseTransition(Duration.seconds(3));
         delay.setOnFinished(e -> {
-            if (currentJob == null) return; // phòng trường hợp đã bị đổi job
+            if (currentJob == null)
+                return; // phòng trường hợp đã bị đổi job
             currentJob.cancel(); // cancel sẽ hiệu lực ở checkpoint
             currentJob = null;
             progress.setProgress(0);
@@ -185,20 +210,18 @@ public class ConnectedPeerController {
 
                             statusLabel.setText("✅ Đã nhận được tóm tắt!");
 
-                            // Hiển thị Dialog (Copy hàm showSummaryResultDialog từ bài trước vào file này nếu chưa có)
+                            // Hiển thị Dialog (Copy hàm showSummaryResultDialog từ bài trước vào file này
+                            // nếu chưa có)
                             showSummaryResultDialog(fileName, finalContent);
                         } catch (IllegalArgumentException e) {
-//                            statusLabel.setText("❌ Lỗi giải mã nội dung.");
-//                            e.printStackTrace();
                             // [FALLBACK] Nếu giải mã lỗi -> Server đang gửi Text thường (chưa update code)
-                            // Ta hiển thị luôn text đó thay vì báo lỗi
                             System.err.println("Lỗi giải mã Base64 (Có thể Server gửi text thường): " + e.getMessage());
 
-                            // Khôi phục <br> thành xuống dòng (cho code cũ)
                             String fallbackContent = rawContent.replace("<br>", "\n");
 
                             statusLabel.setText("⚠️ Nội dung chưa được mã hóa");
-                            showSummaryResultDialog(fileName, fallbackContent + "\n\n(Lưu ý: Peer bên kia chưa cập nhật tính năng mã hóa an toàn)");
+                            showSummaryResultDialog(fileName, fallbackContent
+                                    + "\n\n(Lưu ý: Peer bên kia chưa cập nhật tính năng mã hóa an toàn)");
                         }
                     }
                 } else {
@@ -211,7 +234,8 @@ public class ConnectedPeerController {
     }
 
     public void receivedMessage(String message) {
-        if (message == null) return;
+        if (message == null)
+            return;
 
         if (message.startsWith("CMD:REMOVE_FILE|")) {
             String[] parts = message.split("\\|");
@@ -271,7 +295,8 @@ public class ConnectedPeerController {
 
     private void downloadFile(Row fileRow) {
         // Nếu đang có job chạy, tránh tải chồng (tùy bạn cho phép nhiều job)
-        if (currentJob != null && (currentJob.getState() == DownloadJob.State.RUNNING || currentJob.getState() == DownloadJob.State.PAUSED)) {
+        if (currentJob != null && (currentJob.getState() == DownloadJob.State.RUNNING
+                || currentJob.getState() == DownloadJob.State.PAUSED)) {
             new Alert(Alert.AlertType.INFORMATION, "Đang có file đang tải. Hãy Pause/Cancel trước!").showAndWait();
             return;
         }
@@ -302,8 +327,7 @@ public class ConnectedPeerController {
         progress.setProgress(0);
         statusLabel.setText("Đang chuẩn bị tải: " + fileRow.name);
 
-
-        //  service tạo job + chạy nền + trả về handle
+        // service tạo job + chạy nền + trả về handle
         currentJob = fileShareService.startDownload(
                 peer,
                 fileRow.relativePath,
@@ -321,24 +345,28 @@ public class ConnectedPeerController {
                         this.resetButtons();
                         progress.setProgress(1.0);
                     }
-                })
-        );
+                }));
 
-        if (btnDownload != null) btnDownload.setDisable(true); // Đang tải thì khóa nút tải
-        if (btnPause != null) btnPause.setDisable(false);      // Mở nút Pause
-        if (btnResume != null) btnResume.setDisable(true);     // Khóa nút Resume
-        if (btnCancel != null) btnCancel.setDisable(false);    // Mở nút Cancel
-
-
+        if (btnDownload != null)
+            btnDownload.setDisable(true); // Đang tải thì khóa nút tải
+        if (btnPause != null)
+            btnPause.setDisable(false); // Mở nút Pause
+        if (btnResume != null)
+            btnResume.setDisable(true); // Khóa nút Resume
+        if (btnCancel != null)
+            btnCancel.setDisable(false); // Mở nút Cancel
     }
-
 
     // Hàm reset trạng thái nút về ban đầu
     private void resetButtons() {
-        if (btnDownload != null) btnDownload.setDisable(false);
-        if (btnPause != null) btnPause.setDisable(true);
-        if (btnResume != null) btnResume.setDisable(true);
-        if (btnCancel != null) btnCancel.setDisable(true);
+        if (btnDownload != null)
+            btnDownload.setDisable(false);
+        if (btnPause != null)
+            btnPause.setDisable(true);
+        if (btnResume != null)
+            btnResume.setDisable(true);
+        if (btnCancel != null)
+            btnCancel.setDisable(true);
     }
 
     // NEW: setter callback
@@ -347,25 +375,47 @@ public class ConnectedPeerController {
     }
 
     private void showSummaryResultDialog(String fileName, String summaryContent) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Kết quả Tóm tắt AI (Từ xa)");
-        alert.setHeaderText("Peer " + peer.getName() + " đã tóm tắt file: " + fileName);
+        try {
+            // 1. Load giao diện đẹp từ FXML
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                    getClass().getResource("/org/example/p2pfileshare/SummaryResultDialog.fxml"));
+            javafx.scene.Parent page = loader.load();
 
-        TextArea textArea = new TextArea(summaryContent);
-        textArea.setEditable(false);
-        textArea.setWrapText(true);
-        textArea.setMaxWidth(Double.MAX_VALUE);
-        textArea.setMaxHeight(Double.MAX_VALUE);
+            // 2. Tạo Stage mới
+            javafx.stage.Stage dialogStage = new javafx.stage.Stage();
+            dialogStage.initStyle(javafx.stage.StageStyle.UNDECORATED); // Bỏ thanh tiêu đề mặc định
+            dialogStage.initModality(javafx.stage.Modality.APPLICATION_MODAL); // Chặn cửa sổ chính
 
-        javafx.scene.layout.GridPane.setVgrow(textArea, javafx.scene.layout.Priority.ALWAYS);
-        javafx.scene.layout.GridPane.setHgrow(textArea, javafx.scene.layout.Priority.ALWAYS);
+            // Set chủ sở hữu để dialog hiện giữa cửa sổ chính
+            if (peerNameLabel.getScene() != null) {
+                dialogStage.initOwner(peerNameLabel.getScene().getWindow());
+            }
 
-        javafx.scene.layout.GridPane expContent = new javafx.scene.layout.GridPane();
-        expContent.setMaxWidth(Double.MAX_VALUE);
-        expContent.add(textArea, 0, 1);
+            // 3. Thiết lập Scene (cho phép trong suốt để bo góc đẹp nếu FXML có radius)
+            javafx.scene.Scene scene = new javafx.scene.Scene(page);
+            scene.setFill(javafx.scene.paint.Color.TRANSPARENT); // Quan trọng nếu dùng drop-shadow
+            dialogStage.initStyle(javafx.stage.StageStyle.TRANSPARENT); // Quan trọng để bo góc
+            dialogStage.setScene(scene);
 
-        alert.getDialogPane().setContent(expContent);
-        alert.showAndWait();
+            // 4. Truyền dữ liệu vào Controller
+            SummaryResultController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+            controller.setContent(fileName, summaryContent);
+
+            // 5. Hiển thị
+            dialogStage.showAndWait();
+
+        } catch (java.io.IOException e) {
+            e.printStackTrace();
+            // Fallback: Nếu lỗi load FXML thì dùng Alert cũ
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Kết quả Tóm tắt AI");
+            alert.setHeaderText("Tóm tắt file: " + fileName);
+            TextArea textArea = new TextArea(summaryContent);
+            textArea.setWrapText(true);
+            alert.getDialogPane().setContent(textArea);
+            alert.showAndWait();
+        }
     }
 
     private void removeFileFromList(String fileName) {
@@ -380,7 +430,6 @@ public class ConnectedPeerController {
                 return rowName.equalsIgnoreCase(targetName);
             });
 
-
             if (removed) {
                 statusLabel.setText("Đối phương vừa xóa file: " + fileName);
                 fileTable.refresh();
@@ -390,10 +439,10 @@ public class ConnectedPeerController {
         });
     }
 
-
     @FXML
     private void onDisconnect() {
-        // Thực hiện tương tự logic ở PeerTabController: gửi request tới peer, chờ phản hồi rồi cập nhật UI
+        // Thực hiện tương tự logic ở PeerTabController: gửi request tới peer, chờ phản
+        // hồi rồi cập nhật UI
         if (peer == null) {
             new Alert(Alert.AlertType.INFORMATION, "Peer không hợp lệ").showAndWait();
             return;
@@ -403,8 +452,7 @@ public class ConnectedPeerController {
         boolean confirmed = showConfirmDialog(
                 "🔌 Ngắt kết nối",
                 "Bạn có chắc muốn ngắt kết nối với " + peer.getName() + "?",
-                "Hành động này sẽ dừng mọi tiến trình tải file đang chạy."
-        );
+                "Hành động này sẽ dừng mọi tiến trình tải file đang chạy.");
 
         // nếu hủy hoặc tắt thì thoát luôn
         if (!confirmed) {
@@ -437,18 +485,18 @@ public class ConnectedPeerController {
         Task<Boolean> task = new Task<>() {
             @Override
             protected Boolean call() {
-//                currentJob.pause();
+                // currentJob.pause();
 
-//                PauseTransition delay = new PauseTransition(Duration.seconds(3));
-//                delay.setOnFinished(e -> {
-//                    if (currentJob == null) return; // phòng trường hợp đã bị đổi job
-//                    currentJob.cancel(); // cancel sẽ hiệu lực ở checkpoint
-//                    currentJob = null;
-//                    progress.setProgress(0);
-//                    statusLabel.setText("Đã hủy tải");
-//                    resetButtons();
-//                });
-//                delay.play();
+                // PauseTransition delay = new PauseTransition(Duration.seconds(3));
+                // delay.setOnFinished(e -> {
+                // if (currentJob == null) return; // phòng trường hợp đã bị đổi job
+                // currentJob.cancel(); // cancel sẽ hiệu lực ở checkpoint
+                // currentJob = null;
+                // progress.setProgress(0);
+                // statusLabel.setText("Đã hủy tải");
+                // resetButtons();
+                // });
+                // delay.play();
                 return controlClient.sendDisconnectRequest(peer);
             }
         };
@@ -464,9 +512,14 @@ public class ConnectedPeerController {
 
                 showSuccessDialog("Thành công", "Đã ngắt kết nối với peer.");
 
-                // Gọi callback để PeerTabController cập nhật danh sách peer và remove controller
+                // Gọi callback để PeerTabController cập nhật danh sách peer và remove
+                // controller
                 if (onDisconnectedCallback != null) {
-                    try { onDisconnectedCallback.run(); } catch (Exception ex) { ex.printStackTrace(); }
+                    try {
+                        onDisconnectedCallback.run();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
                 }
 
             } else {
@@ -555,12 +608,24 @@ public class ConnectedPeerController {
         private final String name;
         private final String relativePath;
         private final long size;
+
         public Row(String name, String relativePath, long size) {
-            this.name = name; this.relativePath = relativePath; this.size = size;
+            this.name = name;
+            this.relativePath = relativePath;
+            this.size = size;
         }
-        public String getName() { return name; }
-        public String getRelativePath() { return relativePath; }
-        public long getSize() { return size; }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getRelativePath() {
+            return relativePath;
+        }
+
+        public long getSize() {
+            return size;
+        }
     }
 
     // Helper: đổi bytes -> KB/MB/GB theo ngưỡng
@@ -576,8 +641,10 @@ public class ConnectedPeerController {
             return String.format("%.2f KB", bytes / KB);
         }
     }
+
     public void updatePeerDisplayName(String newName) {
-        if (newName == null) return;
+        if (newName == null)
+            return;
         Platform.runLater(() -> {
             peerNameLabel.setText(newName + " (" + peer.getIp() + ")");
         });
