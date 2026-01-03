@@ -1,8 +1,11 @@
 /* file: styles.css */
 .root {
-    -fx-font-family: 'Segoe UI', sans-serif; /* Font chuẩn Windows */
-    -fx-base: #eceff1;      /* Màu nền tổng thể sáng */
-    -fx-accent: #3498db;    /* Màu chủ đạo (Xanh dương) */
+    -fx-font-family: 'Segoe UI', sans-serif;
+    /* Font chuẩn Windows */
+    -fx-base: #eceff1;
+    /* Màu nền tổng thể sáng */
+    -fx-accent: #3498db;
+    /* Màu chủ đạo (Xanh dương) */
     -fx-focus-color: transparent;
     -fx-faint-focus-color: transparent;
 }
@@ -10,19 +13,21 @@
 /* === THANH TAB (TabPane) === */
 .tab-pane .tab-header-area .tab-header-background {
     -fx-background-color: white;
-    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 1);
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.1), 5, 0, 0, 1);
 }
 
 .tab {
     -fx-background-color: transparent;
     -fx-padding: 10 20 10 20;
     -fx-background-insets: 0;
-    -fx-border-width: 0 0 3 0; /* Gạch chân tab */
+    -fx-border-width: 0 0 3 0;
+    /* Gạch chân tab */
     -fx-border-color: transparent;
 }
 
 .tab:selected {
-    -fx-border-color: -fx-accent; /* Màu gạch chân khi chọn */
+    -fx-border-color: -fx-accent;
+    /* Màu gạch chân khi chọn */
 }
 
 .tab-label {
@@ -42,7 +47,7 @@
     -fx-background-radius: 8;
     -fx-border-radius: 8;
     -fx-padding: 0;
-    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 1);
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.05), 5, 0, 0, 1);
 }
 
 .table-view .column-header-background {
@@ -68,12 +73,14 @@
 }
 
 .table-row-cell:selected {
-    -fx-background-color: #e8f6f3; /* Màu xanh nhạt khi chọn */
+    -fx-background-color: #e8f6f3;
+    /* Màu xanh nhạt khi chọn */
     -fx-table-cell-border-color: transparent;
 }
 
 .table-row-cell:selected .text {
-    -fx-fill: #2c3e50; /* Giữ màu chữ đậm thay vì trắng */
+    -fx-fill: #2c3e50;
+    /* Giữ màu chữ đậm thay vì trắng */
 }
 
 /* === NÚT BẤM (Button) === */
@@ -87,7 +94,8 @@
 }
 
 .button:hover {
-    -fx-background-color: derive(-fx-accent, -10%); /* Tối hơn khi di chuột */
+    -fx-background-color: derive(-fx-accent, -10%);
+    /* Tối hơn khi di chuột */
 }
 
 .button:pressed {
@@ -105,6 +113,18 @@
     -fx-background-color: #e74c3c;
 }
 
+.button.success {
+    -fx-background-color: #27ae60;
+    -fx-text-fill: white;
+    -fx-border-color: #27ae60;
+}
+
+.button.outline {
+    -fx-background-color: white;
+    -fx-text-fill: #2c3e50;
+    -fx-border-color: #b2bec3;
+}
+
 /* === Ô NHẬP LIỆU (TextField) === */
 .text-field {
     -fx-background-color: white;
@@ -116,4 +136,14 @@
 
 .text-field:focused {
     -fx-border-color: -fx-accent;
+}
+
+/* === MENU ITEM === */
+.menu-item-action .label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #8e44ad;
+}
+
+.header-gradient {
+    -fx-background-color: linear-gradient(to right, #6a11cb, #2575fc);
 }

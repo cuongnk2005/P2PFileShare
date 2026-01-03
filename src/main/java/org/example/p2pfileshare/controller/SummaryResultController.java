@@ -62,17 +62,18 @@ public class SummaryResultController {
         clipboard.setContent(content);
 
         copyButton.setText("Đã sao chép! ✓");
-        copyButton.setStyle(
-                "-fx-background-color: #27ae60; -fx-text-fill: white; -fx-border-color: #27ae60; -fx-background-radius: 6;");
+        copyButton.getStyleClass().remove("outline");
+        copyButton.getStyleClass().add("success");
         copyButton.setDisable(true);
 
         // Tự động reset lại nút sau 2 giây
         javafx.animation.PauseTransition pause = new javafx.animation.PauseTransition(javafx.util.Duration.seconds(2));
         pause.setOnFinished(e -> {
             copyButton.setText("📋 Sao chép nội dung");
-            // copyButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
-            // // Về màu xanh dương
-            copyButton.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-border-color: #b2bec3;");
+
+            copyButton.getStyleClass().remove("success");
+            copyButton.getStyleClass().add("outline");
+
             copyButton.setDisable(false);
         });
         pause.play();

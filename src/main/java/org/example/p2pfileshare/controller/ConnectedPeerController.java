@@ -151,7 +151,7 @@ public class ConnectedPeerController {
     private void setupContextMenu() {
         ContextMenu contextMenu = new ContextMenu();
         MenuItem downloadItem = new MenuItem("⬇ Tải xuống");
-        downloadItem.setStyle("-fx-font-weight: bold; -fx-text-fill: #8e44ad;");
+        downloadItem.getStyleClass().add("menu-item-action");
         downloadItem.setOnAction(e -> {
             Row selected = fileTable.getSelectionModel().getSelectedItem();
             if (selected != null) {
@@ -160,7 +160,7 @@ public class ConnectedPeerController {
         });
 
         MenuItem summarizeItem = new MenuItem("✨ Tóm tắt file");
-        summarizeItem.setStyle("-fx-font-weight: bold; -fx-text-fill: #8e44ad;");
+        summarizeItem.getStyleClass().add("menu-item-action");
         summarizeItem.setOnAction(e -> {
             Row selected = fileTable.getSelectionModel().getSelectedItem();
             if (selected != null) {
@@ -189,48 +189,53 @@ public class ConnectedPeerController {
     private void requestRemoteSummary(Row row) {
         statusLabel.setText("⏳ Đang yêu cầu Peer " + peer.getName() + " tóm tắt file: " + row.getName() + "...");
 
-        new Thread(() -> {
-            String rawResponse = controlClient.sendSummarizeRequest(peer, row.getRelativePath());
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() throws Exception {
+                // Hàm này blocking, nên chạy trong background thread của Task
+                return controlClient.sendSummarizeRequest(peer, row.getRelativePath());
+            }
+        };
 
-            Platform.runLater(() -> {
-                if (rawResponse != null && rawResponse.startsWith("SUMMARIZE_RES|")) {
-                    // Phân tích kết quả
-                    String[] parts = rawResponse.split("\\|", 3);
-                    if (parts.length >= 3) {
-                        String fileName = parts[1];
-                        String rawContent = parts[2].trim();
+        task.setOnSucceeded(e -> {
+            String rawResponse = task.getValue();
+            if (rawResponse != null && rawResponse.startsWith("SUMMARIZE_RES|")) {
+                // Phân tích kết quả
+                String[] parts = rawResponse.split("\\|", 3);
+                if (parts.length >= 3) {
+                    String fileName = parts[1];
+                    String rawContent = parts[2].trim();
 
-                        // [DEBUG] In ra để xem Server gửi cái gì
-                        System.out.println("DEBUG - Raw Response: " + rawContent);
+                    // [DEBUG]
+                    System.out.println("DEBUG - Raw Response: " + rawContent);
 
-                        try {
-                            // Giải mã Base64 về van bản gốc
-                            byte[] decodedBytes = Base64.getDecoder().decode(rawContent);
-                            String finalContent = new String(decodedBytes, StandardCharsets.UTF_8);
+                    try {
+                        // Giải mã Base64
+                        byte[] decodedBytes = Base64.getDecoder().decode(rawContent);
+                        String finalContent = new String(decodedBytes, StandardCharsets.UTF_8);
 
-                            statusLabel.setText("✅ Đã nhận được tóm tắt!");
-
-                            // Hiển thị Dialog (Copy hàm showSummaryResultDialog từ bài trước vào file này
-                            // nếu chưa có)
-                            showSummaryResultDialog(fileName, finalContent);
-                        } catch (IllegalArgumentException e) {
-                            // [FALLBACK] Nếu giải mã lỗi -> Server đang gửi Text thường (chưa update code)
-                            System.err.println("Lỗi giải mã Base64 (Có thể Server gửi text thường): " + e.getMessage());
-
-                            String fallbackContent = rawContent.replace("<br>", "\n");
-
-                            statusLabel.setText("⚠️ Nội dung chưa được mã hóa");
-                            showSummaryResultDialog(fileName, fallbackContent
-                                    + "\n\n(Lưu ý: Peer bên kia chưa cập nhật tính năng mã hóa an toàn)");
-                        }
+                        statusLabel.setText("✅ Đã nhận được tóm tắt!");
+                        showSummaryResultDialog(fileName, finalContent);
+                    } catch (IllegalArgumentException ex) {
+                        // [FALLBACK]
+                        System.err.println("Lỗi giải mã Base64: " + ex.getMessage());
+                        String fallbackContent = rawContent.replace("<br>", "\n");
+                        statusLabel.setText("⚠️ Nội dung chưa được mã hóa");
+                        showSummaryResultDialog(fileName, fallbackContent + "\n\n(Lưu ý: Peer dùng phiên bản cũ)");
                     }
-                } else {
-                    statusLabel.setText("❌ Không nhận được phản hồi hoặc lỗi.");
-                    Alert alert = new Alert(Alert.AlertType.ERROR, "Peer không phản hồi hoặc file không tồn tại.");
-                    alert.showAndWait();
                 }
-            });
-        }).start();
+            } else {
+                statusLabel.setText("❌ Không nhận được phản hồi hoặc lỗi.");
+                new Alert(Alert.AlertType.ERROR, "Peer không phản hồi hoặc timeout.").showAndWait();
+            }
+        });
+
+        task.setOnFailed(e -> {
+            statusLabel.setText("❌ Lỗi kết nối.");
+            e.getSource().getException().printStackTrace();
+        });
+
+        new Thread(task).start();
     }
 
     public void receivedMessage(String message) {

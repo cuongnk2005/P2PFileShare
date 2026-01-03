@@ -7,6 +7,7 @@
 <VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="org.example.p2pfileshare.controller.SummaryResultController"
       spacing="0" alignment="TOP_CENTER"
+      stylesheets="@styles.css"
       style="-fx-background-color: white; -fx-border-color: #a29bfe; -fx-border-width: 1; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 0, 0);"
       prefWidth="650" prefHeight="550">
 
@@ -33,7 +34,7 @@
     <!-- Footer -->
     <HBox spacing="15" alignment="CENTER_RIGHT" style="-fx-padding: 15 25; -fx-background-color: #f1f2f6; -fx-border-color: #dfe6e9; -fx-border-width: 1 0 0 0;">
         <Button fx:id="copyButton" text="📋 Sao chép nội dung" onAction="#onCopy"
-                style="-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-border-color: #b2bec3; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 9 18; -fx-font-size: 13px;" />
+                styleClass="button, outline" />
 
         <Button text="Đóng" onAction="#onClose" defaultButton="true"
                 style="-fx-background-color: #6a11cb; -fx-text-fill: white; -fx-background-radius: 6; -fx-cursor: hand; -fx-font-weight: bold; -fx-padding: 9 25; -fx-font-size: 13px;" />

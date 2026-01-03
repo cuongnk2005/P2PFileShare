@@ -23,15 +23,23 @@ import java.util.UUID;
 public class RootController {
 
     // Include các tab con
-    @FXML private PeerTabController peerTabController;
-    @FXML private ShareTabController shareTabController;
-    @FXML private SearchTabController searchTabController;
-    @FXML private HistoryTabController historyTabController;
-    @FXML private IncomingConnectionController incomingConnectionTabController;
+    @FXML
+    private PeerTabController peerTabController;
+    @FXML
+    private ShareTabController shareTabController;
+    @FXML
+    private SearchTabController searchTabController;
+    @FXML
+    private HistoryTabController historyTabController;
+    @FXML
+    private IncomingConnectionController incomingConnectionTabController;
 
-    @FXML private TabPane mainTabPane;
-    @FXML private Label globalStatusLabel;
-    @FXML private Label userNameLabel; // hiển thị tên người dùng trên status bar
+    @FXML
+    private TabPane mainTabPane;
+    @FXML
+    private Label globalStatusLabel;
+    @FXML
+    private Label userNameLabel; // hiển thị tên người dùng trên status bar
 
     // Services
     private PeerService peerService;
@@ -47,25 +55,24 @@ public class RootController {
     // Peer info
     private String myPeerId;
     private String myName; // displayName
-    private final int FILE_PORT      = 6000  + new Random().nextInt(1000);
-    private final int CONTROL_PORT   = 7000  + new Random().nextInt(1000);
-    private static final String KEY_PEER_NAME = "peer_display_name";
+    private final int FILE_PORT = 6000 + new Random().nextInt(1000);
+    private final int CONTROL_PORT = 7000 + new Random().nextInt(1000);
+    private static final String KEY_PEER_NAME = "peer_display_name5";
 
     @FXML
     public void initialize() {
         // 1) Hỏi tên peer
         myName = loadOrAskPeerName();
         myPeerId = UUID.randomUUID().toString();
-        historyService   = new HistoryService();
+        historyService = new HistoryService();
 
         // 2) Khởi tạo service
-        peerService      = new PeerService(myPeerId, myName, FILE_PORT, CONTROL_PORT);
+        peerService = new PeerService(myPeerId, myName, FILE_PORT, CONTROL_PORT);
         peerService.start(); // gọi hàm này để người khác tìm thấy mình
 
         fileShareService = new FileShareService(FILE_PORT, historyService);
         fileShareService.setMyDisplayName(myName); // Truyền tên hiển thị vào FileShareService
-        searchService    = new SearchService();
-
+        searchService = new SearchService();
 
         // 3) ControlClient để gửi request CONNECT (gửi peerId, displayName)
         controlClient = new ControlClient(myPeerId, myName);
@@ -75,7 +82,8 @@ public class RootController {
             // Biến atomic để lưu kết quả (Đồng ý/Từ chối) từ giao diện
             java.util.concurrent.atomic.AtomicBoolean accepted = new java.util.concurrent.atomic.AtomicBoolean(false);
 
-            // Latch để bắt luồng mạng (ControlServer) phải chờ người dùng bấm nút xong mới chạy tiếp
+            // Latch để bắt luồng mạng (ControlServer) phải chờ người dùng bấm nút xong mới
+            // chạy tiếp
             java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
 
             // Chuyển việc hiển thị giao diện sang luồng JavaFX
@@ -103,10 +111,10 @@ public class RootController {
                     ConfirmationController controller = loader.getController();
                     controller.setDialogStage(dialogStage);
                     controller.setContent(
-                            "🔗 Yêu cầu kết nối",                  // Tiêu đề
+                            "🔗 Yêu cầu kết nối", // Tiêu đề
                             "Peer \"" + fromPeer + "\" muốn kết nối!", // Header
                             "Bạn có muốn cho phép thiết bị này truy cập kho file chia sẻ của bạn không?", // Nội dung
-                            "Chấp nhận"                           // Tên nút đồng ý
+                            "Chấp nhận" // Tên nút đồng ý
                     );
 
                     // 4. Hiện dialog và chờ người dùng bấm
@@ -177,13 +185,13 @@ public class RootController {
                 showInfoDialog("Thông báo", "Bạn đã bị ngắt kết nối", content, false);
                 // Cập nhật global status nếu cần
                 if (globalStatusLabel != null) {
-                    globalStatusLabel.setText("Bạn đã bị ngắt kết nối: " + (msg.fromPeer != null ? msg.fromPeer : "Unknown"));
+                    globalStatusLabel
+                            .setText("Bạn đã bị ngắt kết nối: " + (msg.fromPeer != null ? msg.fromPeer : "Unknown"));
                 }
                 this.peerTabController.onRemotePeerDisconnected(msg.fromPeer);
 
             });
         });
-
 
         System.out.println("[Root] ControlServer started at port " + CONTROL_PORT);
 
@@ -196,8 +204,7 @@ public class RootController {
                     fileShareService,
                     globalStatusLabel,
                     controlClient,
-                    peerTabController
-            );
+                    peerTabController);
         }
 
         if (searchTabController != null)
@@ -207,7 +214,7 @@ public class RootController {
             historyTabController.init(historyService, globalStatusLabel);
 
         if (incomingConnectionTabController != null)
-            incomingConnectionTabController.init(peerService, controlServer, globalStatusLabel,this.myPeerId);
+            incomingConnectionTabController.init(peerService, controlServer, globalStatusLabel, this.myPeerId);
 
         globalStatusLabel.setText("Sẵn sàng");
         // Hiển thị tên người dùng lên status bar (nếu Label đã được inject)
@@ -219,9 +226,9 @@ public class RootController {
             Stage stage = (Stage) mainTabPane.getScene().getWindow();
             stage.setOnCloseRequest(event -> {
                 System.out.println("[root] Window close requested");
-                event.consume();          // chặn đóng ngay
-                onExit();                 // gọi shutdown
-                Platform.exit();          // rồi mới thoát
+                event.consume(); // chặn đóng ngay
+                onExit(); // gọi shutdown
+                Platform.exit(); // rồi mới thoát
             });
         });
     }
@@ -258,10 +265,8 @@ public class RootController {
                         + "The application helps reduce system load, improve transfer speed, "
                         + "and is developed for educational and research purposes.\n\n"
                         + "Version: 1.0",
-                true
-        );
+                true);
     }
-
 
     @FXML
     private void onChangeName() {
@@ -279,8 +284,7 @@ public class RootController {
                     fileShareService.setMyDisplayName(myName);
                     controlClient.setMyDisplayName(myName);
                     System.out.println("[trong root] Cập nhật tên peer thành: " + myName);
-                }
-        );
+                });
         if (opt.isPresent()) {
             String newName = opt.get().trim();
             if (!newName.isEmpty() && !newName.equals(myName)) {
@@ -289,14 +293,18 @@ public class RootController {
 
                 // 2) Cập nhật biến và UI
                 myName = newName;
-                if (userNameLabel != null) userNameLabel.setText(myName);
+                if (userNameLabel != null)
+                    userNameLabel.setText(myName);
 
                 // 3) Cập nhật service/client
-                if (peerService != null) peerService.setMyDisplayName(myName);
-                if (controlClient != null) controlClient.setMyDisplayName(myName);
+                if (peerService != null)
+                    peerService.setMyDisplayName(myName);
+                if (controlClient != null)
+                    controlClient.setMyDisplayName(myName);
 
                 // 4) Refresh UI (quét lại peer list để cập nhật hiển thị nếu cần)
-                if (peerTabController != null) peerTabController.refresh();
+                if (peerTabController != null)
+                    peerTabController.refresh();
 
                 globalStatusLabel.setText("Đã đổi tên thành: " + myName);
             }
@@ -310,30 +318,24 @@ public class RootController {
             return saved; // ✔ Có tên rồi → dùng luôn
         }
 
-        // 2) Chưa có → hỏi tên người dùng
-        TextInputDialog dialog = new TextInputDialog("Peer1");
-        dialog.setTitle("Tên Peer");
-        dialog.setHeaderText("Nhập tên Peer:");
-        dialog.setContentText("Tên:");
-
-        String name = dialog.showAndWait().orElse("Peer_" + System.currentTimeMillis());
-
-        // 3) Lưu lại để lần sau khỏi hỏi
-        AppConfig.save(KEY_PEER_NAME, name);
-
-        return name;
+        // 2) Chưa có → hiển thị Dialog FXML chuyên nghiệp
+        return ChangeNameController.showForLogin(null);
     }
 
     private void shutdownGracefully() {
-        if (shuttingDown) return;
+        if (shuttingDown)
+            return;
         shuttingDown = true;
 
         try {
-            if (globalStatusLabel != null) globalStatusLabel.setText("Đang ngắt kết nối...");
+            if (globalStatusLabel != null)
+                globalStatusLabel.setText("Đang ngắt kết nối...");
 
             // 1) Lấy danh sách peer đang CONNECTED (bạn cần hàm này ở PeerService)
-            var peers = peerService != null ? peerService.getPeersByIds(controlServer.getConnectedPeers()) : java.util.List.<PeerInfo>of();
-            var peersListConnected = peerService != null ? peerService.getPeersByIds(controlClient.getPeerIdList()) : java.util.List.<PeerInfo>of();
+            var peers = peerService != null ? peerService.getPeersByIds(controlServer.getConnectedPeers())
+                    : java.util.List.<PeerInfo>of();
+            var peersListConnected = peerService != null ? peerService.getPeersByIds(controlClient.getPeerIdList())
+                    : java.util.List.<PeerInfo>of();
             // 2) Gửi notify cho từng peer (chạy nền để không block UI)
             new Thread(() -> {
                 for (PeerInfo p : peers) {
@@ -355,16 +357,29 @@ public class RootController {
                 }
 
                 // 3) Stop services
-                try { if (controlServer != null) controlServer.stop(); } catch (Exception ignored) {}
-                try { if (fileShareService != null) fileShareService.stopServer(); } catch (Exception ignored) {}
-                try { if (peerService != null) peerService.stop(); } catch (Exception ignored) {}
+                try {
+                    if (controlServer != null)
+                        controlServer.stop();
+                } catch (Exception ignored) {
+                }
+                try {
+                    if (fileShareService != null)
+                        fileShareService.stopServer();
+                } catch (Exception ignored) {
+                }
+                try {
+                    if (peerService != null)
+                        peerService.stop();
+                } catch (Exception ignored) {
+                }
 
                 Platform.runLater(() -> {
                     try {
                         if (mainTabPane.getScene() != null)
                             mainTabPane.getScene().getWindow().hide();
-                    } catch (Exception ignored) {}
-                    Platform.exit();     // dừng JavaFX runtime
+                    } catch (Exception ignored) {
+                    }
+                    Platform.exit(); // dừng JavaFX runtime
                     System.exit(0);
                 });
             }, "shutdown-thread").start();

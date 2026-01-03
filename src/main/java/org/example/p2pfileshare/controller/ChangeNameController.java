@@ -19,7 +19,8 @@ import java.util.function.Consumer;
 
 public class ChangeNameController {
 
-    @FXML private TextField nameField;
+    @FXML
+    private TextField nameField;
 
     private Stage stage;
     private String result;
@@ -31,14 +32,22 @@ public class ChangeNameController {
 
     public static final String KEY_PEER_NAME = "peer_display_name";
 
+    @FXML
+    private javafx.scene.control.Button cancelButton;
+    @FXML
+    private javafx.scene.control.Button saveButton;
+
+    private boolean isLoginMode = false;
+
     // ✅ BẮT BUỘC cho FXMLLoader
-    public ChangeNameController() {}
+    public ChangeNameController() {
+    }
 
     public void init(Stage stage,
-                     ControlClient controlClient,
-                     ControlServer controlServer,
-                     PeerService peerService,
-                     Consumer<String> callback) {
+            ControlClient controlClient,
+            ControlServer controlServer,
+            PeerService peerService,
+            Consumer<String> callback) {
         this.stage = stage;
         this.controlClient = controlClient;
         this.controlServer = controlServer;
@@ -46,51 +55,73 @@ public class ChangeNameController {
         this.onUpdatePeerName = callback;
     }
 
+    public void setLoginMode(boolean loginMode) {
+        this.isLoginMode = loginMode;
+        if (loginMode) {
+            if (cancelButton != null) {
+                cancelButton.setVisible(false); // Ẩn nút Hủy
+                cancelButton.setManaged(false); // Không chiếm chỗ
+            }
+            if (saveButton != null) {
+                saveButton.setText("Bắt đầu tham gia");
+            }
+        }
+    }
+
     @FXML
     private void onSave() {
         String v = nameField.getText();
-        if (v == null) v = "";
+        if (v == null)
+            v = "";
         v = v.trim();
 
-        if (v.isEmpty()) return;
+        if (v.isEmpty()) {
+            nameField.setStyle("-fx-border-color: red;");
+            return;
+        }
 
         result = v;
 
         // lưu cấu hình
         AppConfig.save(KEY_PEER_NAME, result);
-    System.out.println("co chay ham luu ten peer" + result);
-        // callback về Root
-        if (onUpdatePeerName != null) {
-            try {
-                onUpdatePeerName.accept(v);
-            } catch (Exception ex) {
-                ex.printStackTrace();
+
+        // NẾU KHÔNG PHẢI LOGIN MODE THÌ:
+        if (!isLoginMode) {
+            // callback về Root
+            if (onUpdatePeerName != null) {
+                try {
+                    onUpdatePeerName.accept(v);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            // broadcast cho các peer đang connected
+            if (controlClient != null && controlServer != null) {
+                try {
+                    controlClient.broadcastUpdateName(peerService.getPeersByIds(controlServer.getConnectedPeers()),
+                            result);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
             }
         }
 
-        // broadcast cho các peer đang connected
-        if (controlClient != null && controlServer != null) {
-            try {
-
-                controlClient.broadcastUpdateName(peerService.getPeersByIds(controlServer.getConnectedPeers()), result);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-
-        if (stage != null) stage.close();
+        if (stage != null)
+            stage.close();
     }
 
     @FXML
     private void onCancel() {
         result = null;
-        if (stage != null) stage.close();
+        if (stage != null)
+            stage.close();
     }
 
     public void setInitialName(String name) {
         nameField.setText(name != null ? name : "");
-        nameField.requestFocus();
-        nameField.selectAll();
+        nameField.requestFocus(); // Focus vào ô nhập
+        nameField.selectAll(); // Bôi đen để user gõ đè luôn nếu muốn
     }
 
     public static Optional<String> showDialog(
@@ -99,33 +130,51 @@ public class ChangeNameController {
             ControlClient controlClient,
             ControlServer controlServer,
             PeerService peerService,
-            Consumer<String> onUpdatePeerName
-    ) {
+            Consumer<String> onUpdatePeerName) {
+        return showInternal(owner, initialName, controlClient, controlServer, peerService, onUpdatePeerName, false);
+    }
+
+    // Static method chuyên cho Login (vào app)
+    public static String showForLogin(Window owner) {
+        // Load tên đã lưu trước đó nếu có
+        String savedObj = AppConfig.load(KEY_PEER_NAME);
+        String initialName = (savedObj != null && !savedObj.isBlank()) ? savedObj
+                : "Peer_" + System.currentTimeMillis();
+
+        Optional<String> res = showInternal(owner, initialName, null, null, null, null, true);
+        return res.orElse("Peer_Generic");
+    }
+
+    private static Optional<String> showInternal(
+            Window owner,
+            String initialName,
+            ControlClient client,
+            ControlServer server,
+            PeerService peerService,
+            Consumer<String> callback,
+            boolean isLogin) {
         try {
             FXMLLoader loader = new FXMLLoader(
-                    ChangeNameController.class.getResource("/org/example/p2pfileshare/ChangeNameDialog.fxml")
-            );
+                    ChangeNameController.class.getResource("/org/example/p2pfileshare/ChangeNameDialog.fxml"));
 
             Scene scene = new Scene(loader.load());
+            // Transparent scene nếu muốn bo góc đẹp
+            scene.setFill(javafx.scene.paint.Color.TRANSPARENT);
+
             ChangeNameController controller = loader.getController();
 
             Stage stage = new Stage();
             stage.initOwner(owner);
-            stage.initModality(Modality.WINDOW_MODAL);
-            stage.setTitle("Đổi tên Peer");
-            stage.setResizable(false);
+            // Nếu là login màn hình đầu tiên (owner=null), ta dùng APPLICATION_MODAL hoặc
+            // không set owner cũng được
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.initStyle(javafx.stage.StageStyle.TRANSPARENT); // Để bo góc đẹp
+
             stage.setScene(scene);
 
-            // ✅ init dependency
-            controller.init(stage, controlClient, controlServer,peerService, onUpdatePeerName);
-
-            // load initial name (ưu tiên initialName, fallback config)
-            String nameToShow = initialName;
-            if (nameToShow == null || nameToShow.isBlank()) {
-                String saved = AppConfig.load(KEY_PEER_NAME);
-                if (saved != null && !saved.isBlank()) nameToShow = saved;
-            }
-            controller.setInitialName(nameToShow);
+            controller.init(stage, client, server, peerService, callback);
+            controller.setLoginMode(isLogin);
+            controller.setInitialName(initialName);
 
             stage.showAndWait();
             return Optional.ofNullable(controller.result);
