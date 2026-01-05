@@ -11,10 +11,10 @@ public class SimpleAIService {
         // 1. Lập trình mạng & Hệ thống
         if (contain(normalized, "lap trinh mang", "ltm", "network", "socket", "tcp", "udp",
                 "multicast", "broadcast", "rmi", "giao thuc", "cs2004", "soa", "mo hinh", "p2p")) return "Lập trình mạng";
-        if (contain(normalized, "lap trinh he thong", "system programming", "ltht")) return "Lập trình hệ thống";
+        if (contain(normalized, "lap trinh he thong", "laptrinhhethong","hethong", "system programming", "ltht")) return "Lập trình hệ thống";
         if (contain(normalized, "linux", "ubuntu", "centos", "open source", "nguon mo", "mini-devops")) return "Linux & PM Nguồn mở";
         if (contain(normalized, "kien truc may tinh", "computer architecture", "ktmt")) return "Kiến trúc máy tính";
-        if (contain(normalized, "nguyen ly he dieu hanh", "os", "operating system", "hdh")) return "Nguyên lý Hệ điều hành";
+        if (contain(normalized, "nguyen ly he dieu hanh",  "operating system", "hdh") || containWord(normalized, "os")) return "Nguyên lý Hệ điều hành";
         if (contain(normalized, "html", "css", "javascript", "php", "jsp", "servlet")) return "Thiết kế Web";
 
         // 2. Web & Mobile
@@ -29,34 +29,36 @@ public class SimpleAIService {
         if (contain(normalized, "phan tich", "thiet ke he thong", "uml", "design pattern") || normalized.endsWith(".mdj")) return "Phân tích & TK hệ thống";
         if (contain(normalized, "phan tich du lieu", "data analysis", "analyst", "dataset", "data", "visualization")) return "Phân tích dữ liệu";
 
+        // toán học
+        if (contain(normalized, "giai tich", "giaitich", "calculus")) return "Giải tích";
+        if (contain(normalized, "dai so", "tuyen tinh", "algebra")) return "Đại số tuyến tính";
+        if (contain(normalized, "vat ly", "physical")) return "Vật lý";
         // 4. Dữ liệu & Giải thuật
         if (contain(normalized, "cau truc du lieu", "giai thuat", "dsa", "algorithm")) return "CTDL & Giải thuật";
-        if (contain(normalized, "co so du lieu", "csdl", "db", "sql", "mysql", "database") || normalized.endsWith(".sql")) return "Cơ sở dữ liệu";
-        if (contain(normalized, "do hoa may tinh", "computer graphics", "opengl", "cg", "graphics", "curver", "surface", "2d", "3d")) return "Đồ họa máy tính";
+        if (contain(normalized, "co so du lieu","cosodukieu","du-lieu", "csdl", "db", "sql", "mysql", "database") || normalized.endsWith(".sql")) return "Cơ sở dữ liệu";
+        if (contain(normalized, "do hoa may tinh", "computer graphics", "opengl", "graphics", "curver", "surface")|| containWord(normalized, "os", "cg", "2d", "3d")) return "Đồ họa máy tính";
         if (contain(normalized, "thamlam", "dophuctap", "chiadetri", "quyhoachdong", "quaylui", "dequy", "chungminhdungdan")) return "Phân tích & TK giải thuật";
-        if (contain(normalized, "tri tue nhan tao", "minimax", "constraint", "genetic", "solving", "evolutionary", "ai")) return "Trí tuệ nhân tạo";
+        if (contain(normalized, "tri tue nhan tao", "minimax", "constraint", "genetic", "solving", "evolutionary", "ai4life")|| containWord(normalized, "ai")) return "Trí tuệ nhân tạo";
 
         // 5. Ngôn ngữ lập trình căn bản
         if (contain(normalized, "java", "oop", "huong doi tuong")) return "Lập trình Java / OOP";
         if (contain(normalized, "lap trinh co ban", "nhap mon lap trinh", "cpp", "c++", "vong lap")) return "Lập trình cơ bản";
 
-        if (contain(normalized, "do an co so", "dacs", "do an")) {
-            if (contain(normalized, "1")) return "Đồ án cơ sở 1";
-            if (contain(normalized, "2")) return "Đồ án cơ sở 2";
-            if (contain(normalized, "3")) return "Đồ án cơ sở 3";
-            if (contain(normalized, "4")) return "Đồ án cơ sở 4";
+        if (contain(normalized, "do an co so","doancoso", "dacs", "do an")) {
+            if ( contain(normalized, "doancoso1","co_so_1","co-so-1")||containWord(normalized, "1")) return "Đồ án cơ sở 1";
+            if (contain(normalized, "doancoso2","co_so_2","co-so-2")||containWord(normalized, "2")) return "Đồ án cơ sở 2";
+            if (contain(normalized, "doancoso3","co_so_3","co-so-3")||containWord(normalized, "3")) return "Đồ án cơ sở 3";
+            if (contain(normalized, "doancoso4","co_so_4","co-so-4")||containWord(normalized, "4")) return "Đồ án cơ sở 4";
             return "Đồ án cơ sở";
         }
         if (contain(normalized, "thuc tap", "internship")) return "Thực tập thực tế";
         if (contain(normalized, "khoi nghiep")) return "Khởi nghiệp & ĐMST";
 
-        if (contain(normalized, "giai tich", "calculus")) return "Giải tích";
-        if (contain(normalized, "dai so", "tuyen tinh", "algebra")) return "Đại số tuyến tính";
-        if (contain(normalized, "vat ly", "physical")) return "Vật lý";
+
 
         if (contain(normalized, "tieng anh", "english", "toeic", "extract", "tacn")) return "Tiếng Anh";
-        if (contain(normalized, "tieng nhat", "japanese", "nihongo", "unit", "sakubun", "furikaeri", "portfolio",
-                "choukai", "cvbank", "phieu phan tu", "genkou", "essay", "kanji", "jlpt", "n5", "n4", "n3", "n2", "n1")) return "Tiếng Nhật";
+        if (contain(normalized, "tieng nhat", "japanese", "nihongo", "sakubun", "furikaeri", "portfolio",
+                "choukai", "cvbank", "phieu phan tu", "genkou", "essay","katakana", "kanji", "jlpt", "n5", "n4", "n3", "n2", "n1")) return "Tiếng Nhật";
 
         return "Khác";
     }
@@ -101,5 +103,14 @@ public class SimpleAIService {
         String temp = Normalizer.normalize(s, Normalizer.Form.NFD);
         Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
         return pattern.matcher(temp).replaceAll("").replace('đ', 'd').replace('Đ', 'D');
+    }
+    private boolean containWord(String input, String... words) {
+        String[] tokens = input.split("[^a-z0-9]+");
+        for (String w : words) {
+            for (String t : tokens) {
+                if (t.equals(w)) return true;
+            }
+        }
+        return false;
     }
 }
