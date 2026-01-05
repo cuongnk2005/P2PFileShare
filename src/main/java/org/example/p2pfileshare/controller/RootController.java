@@ -57,7 +57,7 @@ public class RootController {
     private String myName; // displayName
     private final int FILE_PORT = 6000 + new Random().nextInt(1000);
     private final int CONTROL_PORT = 7000 + new Random().nextInt(1000);
-    private static final String KEY_PEER_NAME = "peer_display_name5";
+    private static final String KEY_PEER_NAME = "peer_display_name";
 
     @FXML
     public void initialize() {
